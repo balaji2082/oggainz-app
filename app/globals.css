@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   OG Gainz design tokens.
+   Source of truth: Brand-Kit/06-Brand-Guidelines, mirrored from og-gainz-ds.
+   Never hard-code a brand hex in a component — always var(--og-*).
+   --------------------------------------------------------------------------- */
+:root {
+  /* Raw brand palette */
+  --og-forest: #004030;
+  --og-forest-shadow: #002b20;
+  --og-green: #1fa84a;
+  --og-green-light: #52c975;
+  --og-lime: #c5e84b;
+  --og-orange: #e9762b;
+  --og-cream: #f8f5ec;
+  --og-mist: #d6e5db;
+  --og-carbon: #0a0a0a;
+  --og-white: #ffffff;
+  --og-red: #d32f2f;
+
+  /* Semantic */
+  --og-bg: var(--og-cream);
+  --og-surface: var(--og-white);
+  --og-surface-alt: #f1efe4;
+  --og-text: var(--og-carbon);
+  --og-text-muted: #5b6b62;
+  --og-text-inverse: var(--og-white);
+  --og-primary: var(--og-forest);
+  --og-primary-hover: #013525;
+  --og-accent: var(--og-orange);
+  --og-highlight: var(--og-lime);
+  --og-success: var(--og-green);
+  --og-border: var(--og-mist);
+  --og-danger: var(--og-red);
+
+  --og-gradient-brand: linear-gradient(135deg, var(--og-forest) 0%, var(--og-green) 100%);
+
+  --og-shadow-sm: 0 1px 2px rgba(0, 64, 48, 0.08);
+  --og-shadow-md: 0 6px 20px rgba(0, 64, 48, 0.12);
+  --og-shadow-lg: 0 16px 40px rgba(0, 64, 48, 0.16);
+}
+
+@theme inline {
+  --color-forest: var(--og-forest);
+  --color-forest-shadow: var(--og-forest-shadow);
+  --color-green: var(--og-green);
+  --color-green-light: var(--og-green-light);
+  --color-lime: var(--og-lime);
+  --color-orange: var(--og-orange);
+  --color-cream: var(--og-cream);
+  --color-mist: var(--og-mist);
+  --color-carbon: var(--og-carbon);
+  --color-danger: var(--og-red);
+
+  --color-bg: var(--og-bg);
+  --color-surface: var(--og-surface);
+  --color-surface-alt: var(--og-surface-alt);
+  --color-ink: var(--og-text);
+  --color-muted: var(--og-text-muted);
+  --color-line: var(--og-border);
+
+  --font-display: var(--font-poppins), system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+
+  --radius-og: 14px;
+  --shadow-og-sm: var(--og-shadow-sm);
+  --shadow-og-md: var(--og-shadow-md);
+  --shadow-og-lg: var(--og-shadow-lg);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* Never let the page itself scroll sideways on a phone. */
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--og-bg);
+  color: var(--og-text);
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  /* Room for the fixed bottom nav + the iOS home indicator. */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-poppins), system-ui, sans-serif;
+}
+
+/* Respect a user's reduced-motion preference everywhere, once. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
