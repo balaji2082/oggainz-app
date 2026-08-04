@@ -56,7 +56,8 @@ Against the build order in [03 §8](03-data-model.md#8-build-order):
 |---|---|---|
 | 1 | `db.py` migration — new columns, `skip_requests`, app settings | **written, verified, not deployed** |
 | 2 | `customer_api.py` — read endpoints + token auth | **written, tested, not deployed** |
-| 3 | Neon Postgres, `accounts`, `invites`, "Invite to app" | not started |
+| 3 | Neon Postgres, `accounts`, `invites` | **live** — schema applied and verified |
+| 3 | …the "Invite to app" button (Command Center) | not started |
 | 4 | Next.js skeleton, Google sign-in, invite redemption | skeleton exists, no auth |
 | 5 | Read-only customer app | first slice reads a local snapshot |
 
@@ -67,8 +68,15 @@ revenue, every subscription's status and meal counts, today's orders and the pre
 list were identical, and no existing pack starts expiring. Step 2 adds no write
 path of any kind and is off entirely unless `OG_API_TOKEN` is set.
 
+Step 3's database is live on Neon: `accounts`, `invites`, `push_subscriptions`
+and `audit_log`, applied by `npm run db:migrate` and checked by `npm run
+db:check`. Both laws in §3 are enforced by the database rather than by code —
+one active account per customer, and an invite token that cannot be issued
+twice. `lib/accounts.ts` holds the invite and redemption flow.
+
 The app itself still reads `data/snapshot.db` — a copy, opened read-only. It
-cannot deploy usefully until steps 3 and 4 give it a real data source.
+cannot deploy usefully until sign-in (step 4) and the API bridge give it a real
+data source.
 
 ## The open decision
 
