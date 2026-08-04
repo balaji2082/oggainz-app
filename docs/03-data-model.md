@@ -255,6 +255,40 @@ CREATE TABLE audit_log (
 it is a reference, not a copy. No name, no phone, no address, no meal, no
 amount. If this database leaks, it reveals who has an account — nothing more.
 
+### 3.1 Decision, 4 Aug 2026 — a cached copy of customer details
+
+**Balaji's call, overriding the law above in one specific way:** the app also
+stores each customer's **name, phone, locality and addresses**, so a customer's
+screen still works when the Command Center is unreachable — which on a free
+PythonAnywhere worker it sometimes will be (§6).
+
+The recommendation had been to keep nothing and fetch every time, because two
+copies of an address eventually disagree and the losing copy sends food to the
+wrong door. That risk is real, so the copy is built as a **photograph, never a
+second original**:
+
+| | |
+|---|---|
+| Table | `customer_profiles` — `db/migrations/002` |
+| Written by | the app, from the Command Center only |
+| Edited by | nothing, ever. There is no write path back |
+| Every row carries | `synced_at` and `source` |
+| Refreshed | when older than 15 minutes and the API is reachable |
+| When the API is down | the old copy is served **and labelled** `as of <time>` |
+
+[LAW] A cached row is never presented as current. If it could not be refreshed,
+the interface says how old it is. An address that cannot state its own age is
+exactly the failure this decision risks, and the timestamp is what removes it.
+
+[LAW] §1.4 still holds unchanged — the Command Center remains the source of
+truth. Emptying `customer_profiles` loses nothing: the next page load refills it.
+
+**Consequence, stated honestly:** the leak test in §1.1 is now weaker. This
+database no longer reveals only *who has an account* — it would also reveal
+those customers' names, phone numbers and addresses. It still holds no money, no
+meal history and no payment record. That was the trade accepted for offline
+resilience, with eyes open.
+
 ---
 
 ## 4. Linking a customer to an account
