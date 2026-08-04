@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="{{ k_lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#004030">
+  <title>{% block title %}{{ K.app }}{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+  <style>
+    /* The shift screen. Built for one hand, in a kitchen, in a hurry:
+       big tap targets, high contrast, nothing about money on the page. */
+    :root{
+      --forest:#004030; --panel:rgba(255,255,255,.06); --panel-2:rgba(255,255,255,.1);
+      --line:rgba(255,255,255,.14); --ink:#F8F5EC; --ink-2:#cbd8ce; --ink-3:#93a89a;
+      --lime:#C5E84B; --green:#52C975; --orange:#E9762B; --red:#e4574f; --r:14px;
+    }
+    *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+    body{background:linear-gradient(160deg,#00332a 0%,var(--forest) 55%,#062b22 100%);
+      min-height:100vh;color:var(--ink);
+      font:16px/1.45 "Segoe UI",Roboto,system-ui,-apple-system,sans-serif;
+      padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+    a{color:inherit;text-decoration:none}
+    .wrap{max-width:760px;margin:0 auto;padding:12px 12px 20px}
+
+    /* header */
+    .khead{display:flex;align-items:center;gap:8px;padding:10px 2px 12px;
+      position:sticky;top:0;z-index:6;
+      background:linear-gradient(#00332a,#00332aee 72%,transparent)}
+    .khead .b{font-weight:800;letter-spacing:.3px;font-size:15px}
+    .khead .b i{color:var(--lime);font-style:normal}
+    .khead .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+    .khead .who{font-size:12px;color:var(--ink-3)}
+    .mini{padding:6px 11px;border-radius:999px;border:1px solid var(--line);
+      font-size:12.5px;font-weight:700;color:var(--ink-2);background:transparent;
+      cursor:pointer;display:inline-block}
+
+    /* slot tabs */
+    .slots{display:flex;gap:8px;margin-bottom:12px}
+    .slots a{flex:1;text-align:center;padding:11px 8px;border-radius:12px;
+      border:1px solid var(--line);font-weight:700;font-size:14.5px;color:var(--ink-2)}
+    .slots a.on{background:var(--lime);border-color:var(--lime);color:#0c2a1c}
+    .slots a .n{display:block;font-size:11.5px;font-weight:600;opacity:.75;margin-top:1px}
+
+    /* progress */
+    .prog{display:flex;gap:8px;margin-bottom:14px}
+    .prog div{flex:1;background:var(--panel);border:1px solid var(--line);
+      border-radius:12px;padding:9px 10px;text-align:center}
+    .prog .v{font-size:22px;font-weight:800;line-height:1.1}
+    .prog .k{font-size:11px;color:var(--ink-3);font-weight:700;letter-spacing:.4px;
+      text-transform:uppercase;margin-top:2px}
+    .prog .ok .v{color:var(--green)} .prog .sk .v{color:var(--orange)}
+
+    /* order cards */
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+      padding:12px 13px;margin-bottom:10px}
+    .card.done{opacity:.62;border-style:dashed}
+    .card .top{display:flex;align-items:flex-start;gap:10px}
+    .card .nm{font-size:17px;font-weight:750;line-height:1.25}
+    .card .sub{font-size:13px;color:var(--ink-2);margin-top:2px}
+    .card .seq{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;
+      min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:14px;flex:none}
+    .card .st{margin-left:auto;font-size:11.5px;font-weight:800;letter-spacing:.4px;
+      padding:3px 9px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
+    .st.d{color:var(--green);border-color:var(--green)}
+    .st.s{color:var(--orange);border-color:var(--orange)}
+    .note{background:rgba(233,118,43,.13);border:1px solid rgba(233,118,43,.42);
+      border-radius:10px;padding:8px 10px;margin-top:9px;font-size:13.5px}
+    .note b{color:var(--orange)}
+
+    /* buttons */
+    .row{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+    .btn{flex:1;min-width:104px;text-align:center;padding:13px 10px;border-radius:12px;
+      border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+      font-weight:750;font-size:14.5px;cursor:pointer;font-family:inherit}
+    .btn.go{background:var(--green);border-color:var(--green);color:#06251a}
+    .btn.skip{background:transparent;border-color:var(--orange);color:var(--orange)}
+    .btn.ghost{background:transparent;color:var(--ink-2)}
+    .btn.sm{flex:0 0 auto;min-width:0;padding:9px 14px;font-size:13.5px}
+
+    /* prep list */
+    .plist{list-style:none}
+    .plist li{display:flex;align-items:center;gap:11px;padding:13px 12px;
+      background:var(--panel);border:1px solid var(--line);border-radius:12px;
+      margin-bottom:8px;cursor:pointer}
+    .plist li.on{opacity:.5}
+    .plist li.on .pn{text-decoration:line-through}
+    .box{width:26px;height:26px;border-radius:7px;border:2px solid var(--line);flex:none;
+      display:flex;align-items:center;justify-content:center;font-weight:900;color:transparent}
+    .plist li.on .box{background:var(--lime);border-color:var(--lime);color:#0c2a1c}
+    .pn{font-weight:700;font-size:15.5px}
+    .pq{margin-left:auto;font-weight:800;font-size:17px;color:var(--lime);white-space:nowrap}
+    .pb{font-size:12px;color:var(--ink-3);margin-top:2px}
+
+    .warn{background:rgba(228,87,79,.14);border:1px solid rgba(228,87,79,.45);
+      border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13.5px}
+    .muted{color:var(--ink-3);font-size:13px}
+    .empty{text-align:center;color:var(--ink-3);padding:40px 10px;font-size:14.5px}
+    h1{font-size:19px;margin-bottom:3px}
+    h2{font-size:14px;margin:18px 0 9px;color:var(--ink-2);
+      text-transform:uppercase;letter-spacing:.6px}
+    .day{font-size:13px;color:var(--ink-3);margin-bottom:13px}
+
+    /* bottom nav */
+    .knav{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;
+      background:#00281f;border-top:1px solid var(--line);
+      padding-bottom:env(safe-area-inset-bottom)}
+    .knav a{flex:1;text-align:center;padding:11px 4px 12px;font-size:11.5px;
+      font-weight:700;color:var(--ink-3)}
+    .knav a.on{color:var(--lime)}
+    .knav a svg{display:block;margin:0 auto 3px;width:23px;height:23px}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:88px;z-index:20;
+      background:var(--lime);color:#0c2a1c;font-weight:800;padding:9px 18px;
+      border-radius:999px;font-size:13.5px;opacity:0;transition:opacity .18s;
+      pointer-events:none}
+    .toast.show{opacity:1}
+  </style>
+</head>
+<body dir="{{ k_dir }}">
+<div class="wrap">
+  <div class="khead">
+    <span class="b">OG <i>GAINZ</i></span>
+    <span class="right">
+      <span class="who">{{ k_name }}</span>
+      {# full_path leaves a bare '?' when there is no query string — trim it #}
+      <a class="mini" href="{{ url_for('set_lang', back=request.full_path.rstrip('?')) }}">{{ K.lang_other }}</a>
+      {% if login_active %}<a class="mini" href="{{ url_for('logout') }}">{{ K.logout }}</a>{% endif %}
+    </span>
+  </div>
+
+  {% block content %}{% endblock %}
+</div>
+
+<nav class="knav">
+  <a href="{{ url_for('kitchen_home') }}" class="{{ 'on' if request.endpoint in ['kitchen_home','kitchen_order'] }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>{{ K.tab_orders }}</a>
+  <a href="{{ url_for('kitchen_prep') }}" class="{{ 'on' if request.endpoint=='kitchen_prep' }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{{ K.tab_prep }}</a>
+  <a href="{{ url_for('kitchen_run') }}" class="{{ 'on' if request.endpoint=='kitchen_run' }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 18h6l2-7h3"/><path d="M6 15V9h5l3 6"/></svg>{{ K.tab_run }}</a>
+</nav>
+
+<div class="toast" id="kt"></div>
+<script>
+function ktoast(msg){
+  var t=document.getElementById('kt'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(function(){t.classList.remove('show')},1400);
+}
+function kpost(url, data){
+  var body=new URLSearchParams(data||{});
+  return fetch(url,{method:'POST',headers:{'X-Requested-With':'fetch'},body:body})
+    .then(function(r){return r.json()});
+}
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

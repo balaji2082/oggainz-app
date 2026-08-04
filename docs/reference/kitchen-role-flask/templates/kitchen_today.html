@@ -1,0 +1,93 @@
+{% extends "kitchen_base.html" %}
+{% block title %}{{ K.tab_orders }} · {{ K.app }}{% endblock %}
+
+{% block content %}
+<h1>{{ K.tonight if slot == 'Dinner' else K.today }}</h1>
+<div class="day">{{ day_label }}</div>
+
+<div class="slots">
+  <a href="{{ url_for('kitchen_home', slot=slot) }}" class="on">
+    {{ K[slot|lower] }}<span class="n">{{ counts.pending }} {{ K.pending|lower }}</span></a>
+  <a href="{{ url_for('kitchen_home', slot=other) }}">
+    {{ K[other|lower] }}<span class="n">{{ other_counts.pending }} {{ K.pending|lower }}</span></a>
+</div>
+
+{% if not operating %}
+  <div class="warn">{{ K.closed }}</div>
+{% endif %}
+
+<div class="prog">
+  <div><div class="v">{{ counts.pending }}</div><div class="k">{{ K.pending }}</div></div>
+  <div class="ok"><div class="v">{{ counts.delivered }}</div><div class="k">{{ K.delivered }}</div></div>
+  <div class="sk"><div class="v">{{ counts.skipped }}</div><div class="k">{{ K.skipped }}</div></div>
+</div>
+
+{% if not rows %}
+  <div class="empty">{{ K.no_orders }}</div>
+{% elif counts.pending == 0 %}
+  <div class="note" style="background:rgba(82,201,117,.13);border-color:rgba(82,201,117,.45)">
+    <b style="color:var(--green)">✓</b> {{ K.done_all }}</div>
+{% endif %}
+
+{% for r in rows %}
+<div class="card {{ 'done' if r.status in ['Delivered','Skipped'] }}" id="o{{ r.id }}">
+  <div class="top">
+    <div style="min-width:0">
+      <a href="{{ url_for('kitchen_order', did=r.id) }}">
+        <div class="nm">{{ r.name }}</div>
+        <div class="sub">{{ r.plan_name or K.meal }}{% if r.locality %} · {{ r.locality }}{% endif %}</div>
+      </a>
+    </div>
+    <span class="st {{ 'd' if r.status=='Delivered' }}{{ 's' if r.status=='Skipped' }}" data-st="{{ r.id }}">
+      {% if r.status == 'Delivered' %}{{ K.delivered }}
+      {% elif r.status == 'Skipped' %}{{ K.skipped }}
+      {% else %}{{ K.pending }}{% endif %}
+    </span>
+  </div>
+
+  {% set n = [] %}
+  {% if r.sub_notes %}{% set _ = n.append(r.sub_notes) %}{% endif %}
+  {% if r.day_note %}{% set _ = n.append(r.day_note) %}{% endif %}
+  {% if n %}<div class="note"><b>{{ K.note }}:</b> {{ n|join(' · ') }}</div>{% endif %}
+
+  <div class="row" data-actions="{{ r.id }}">
+    {% if r.status == 'Pending' %}
+      <button class="btn go" onclick="kmark({{ r.id }},'Delivered')">✓ {{ K.mark_delivered }}</button>
+      <button class="btn skip" onclick="kmark({{ r.id }},'Skipped')">{{ K.mark_skipped }}</button>
+    {% else %}
+      <button class="btn ghost sm" onclick="kmark({{ r.id }},'Pending')">↺ {{ K.undo }}</button>
+    {% endif %}
+    <a class="btn ghost sm" href="{{ url_for('kitchen_order', did=r.id) }}">{{ K.address }} ›</a>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+var T = {d:{{ K.delivered|tojson }}, s:{{ K.skipped|tojson }}, p:{{ K.pending|tojson }},
+         md:{{ K.mark_delivered|tojson }}, ms:{{ K.mark_skipped|tojson }},
+         un:{{ K.undo|tojson }}, ad:{{ K.address|tojson }}, saved:{{ K.saved|tojson }}};
+
+function kmark(id, status){
+  kpost('/k/order/'+id+'/mark', {status:status}).then(function(res){
+    if(!res || !res.ok) return;
+    var card = document.getElementById('o'+id);
+    var chip = document.querySelector('[data-st="'+id+'"]');
+    var acts = document.querySelector('[data-actions="'+id+'"]');
+    chip.className = 'st' + (status=='Delivered' ? ' d' : status=='Skipped' ? ' s' : '');
+    chip.textContent = status=='Delivered' ? T.d : status=='Skipped' ? T.s : T.p;
+    card.classList.toggle('done', status != 'Pending');
+    acts.innerHTML = status == 'Pending'
+      ? '<button class="btn go" onclick="kmark('+id+',\'Delivered\')">✓ '+T.md+'</button>'+
+        '<button class="btn skip" onclick="kmark('+id+',\'Skipped\')">'+T.ms+'</button>'+
+        '<a class="btn ghost sm" href="/k/order/'+id+'">'+T.ad+' ›</a>'
+      : '<button class="btn ghost sm" onclick="kmark('+id+',\'Pending\')">↺ '+T.un+'</button>'+
+        '<a class="btn ghost sm" href="/k/order/'+id+'">'+T.ad+' ›</a>';
+    var p = document.querySelectorAll('.prog .v');
+    p[0].textContent = res.pending; p[1].textContent = res.delivered; p[2].textContent = res.skipped;
+    ktoast(T.saved);
+  });
+}
+</script>
+{% endblock %}

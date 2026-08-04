@@ -1,0 +1,621 @@
+diff --git a/DEPLOY.md b/DEPLOY.md
+index 9536248..6438a75 100644
+--- a/DEPLOY.md
++++ b/DEPLOY.md
+@@ -200,3 +200,55 @@ subscriptions are untouched.**
+   WhatsApp** to share, and a one-tap **📘 Send brochure** button on every CRM lead.
+   It seeded itself from the app's live pack prices — give it one read and tweak any wording
+   you want.
++
++---
++
++## 3 August 2026 — staff logins and the kitchen screen (Phase A)
++
++The app used to be all-or-nothing: anyone who could sign in could change a price or delete a
++subscription. Now each person gets their own login, and staff see a separate, much smaller
++screen built for the shift. **Additive again — the two new tables create themselves on first
++load, and no existing data is touched.**
++
++### Deploying it (same 2 steps, plus one restart)
++1. On PythonAnywhere → **Bash**: `cd oggainz-os && git pull`
++2. **Web → Reload** (this is what picks up the Python changes — a template edit alone would
++   not need it, but this update changes Python)
++
++Nothing new to set in the WSGI file. `OG_PASSWORD` and `OG_TEAM_PASSWORD` work exactly as
++before.
++
++### Setting Subramani up (2 minutes, do it once)
++1. **More → Staff & access**
++2. *Add someone*: name, role **Kitchen & delivery**, screen language **English or தமிழ்**,
++   and a 4–6 digit PIN. Add his phone number if you like.
++3. Tell him the PIN yourself. It is stored scrambled — nobody, including that page, can read
++   it back. If he forgets it, set a new one from the same page.
++4. Send him `https://oggainz.pythonanywhere.com/login` — he taps his name, types the PIN, and
++   lands straight on the kitchen screen.
++
++### What he sees
++Three tabs, and nothing else in the whole app:
++- **Orders** — tonight's list, tap ✓ Delivered or Skipped, tap a name for the full card
++  (what goes in the box, address, map, call, WhatsApp, meals remaining, a note field)
++- **Prep** — the batch quantities for the slot, tapped off one line at a time
++- **Run** — the riding order with ETAs, one tap per stop, and the whole route in Google Maps
++
++### What he cannot see or do
++No price, no revenue, no payment status — those screens have no money on them at all, so
++there is nothing to leak. He cannot create, edit, pause, renew or delete a subscription,
++cannot touch the menu, brochure, settings, exports, backups, CRM or invoices, and cannot
++change any day other than today. Every page in the app is refused to him unless it is on an
++explicit list, so a page added next month is locked until it is unlocked on purpose.
++
++### Keeping an eye on it
++- **More → Activity log** — who marked what delivered, what note they wrote, when they signed
++  in. Also shown at the bottom of the Staff page.
++- **More → Kitchen screen** opens exactly what he sees, from your own login.
++- Someone leaving: **Remove access** on the Staff page. Their history stays in the log.
++- Five wrong PINs in a row locks that account for 15 minutes (the login page is on the public
++  internet and 4 digits is not many guesses). Resetting the PIN unlocks it immediately.
++
++### Before deploying, if you changed anything
++`python test_permissions.py` — 88 checks that staff can reach their screens and nothing else.
++It copies the database to a throwaway file first, so it can never touch your real data.
+diff --git a/app.py b/app.py
+index f0a5b1d..5deba5a 100644
+--- a/app.py
++++ b/app.py
+@@ -22,6 +22,7 @@ import menu
+ import ops
+ import sheet_i18n
+ import agent
++import auth
+ import brochure
+ 
+ # Run all date logic in the user's timezone (IST) even when the app is hosted on a
+@@ -61,6 +62,7 @@ db.init_db()
+ _c = db.get_db()
+ menu.seed_menu(_c)
+ brochure.seed_brochure(_c)
++auth.ensure_schema(_c)              # users + audit_log (roles: see auth.py)
+ _c.close()
+ 
+ # ---------------------------------------------------------------------------
+@@ -70,14 +72,15 @@ _c.close()
+ # server). With no password configured, the app behaves exactly as before for
+ # local use on your laptop — no login screen.
+ APP_PASSWORD = os.environ.get("OG_PASSWORD")
+-# Editor friends log in with this second password: they get role "team" and can
+-# reach ONLY the /content pages (content_hub gates the rest). Optional.
++# Editor friends log in with this second password: they get role "content" and can
++# reach ONLY the /content pages. Optional. Staff (kitchen) log in with their own
++# name + PIN instead — see auth.py — because a shared password cannot tell you who
++# marked an order delivered.
+ TEAM_PASSWORD = os.environ.get("OG_TEAM_PASSWORD")
+ # invoice_public + terms + brochure are customer-facing pages (token-protected /
+ # plain info), so they stay reachable without the app password.
+ # content_sync_api is protected by its own token (OG_SYNC_TOKEN), not the session.
+-PUBLIC_ENDPOINTS = {"login", "static", "invoice_public", "terms", "brochure_public",
+-                    "content_sync_api"}
++PUBLIC_ENDPOINTS = auth.PUBLIC_ENDPOINTS
+ 
+ 
+ @app.before_request
+@@ -91,28 +94,75 @@ def require_login():
+     return redirect(url_for("login", next=request.path))
+ 
+ 
++@app.before_request
++def require_capability():
++    """The permission gate: may THIS role reach THIS page?
++
++    Deny-by-default — a page that auth.ENDPOINT_CAPS does not list is refused for
++    everyone except the owner. That way a page added next month is locked until
++    somebody unlocks it on purpose, rather than being exposed because nobody
++    remembered to lock it. See auth.py for the whole map.
++    """
++    if request.endpoint in PUBLIC_ENDPOINTS or request.endpoint is None:
++        return
++    if auth.may(request.endpoint):
++        return
++    return redirect(auth.home_url())
++
++
+ @app.route("/login", methods=["GET", "POST"])
+ def login():
+-    if not APP_PASSWORD or session.get("authed"):
+-        return redirect(url_for("today"))
++    """Two ways in: Balaji's password, or a staff member's name + PIN.
++
++    The staff list is shown as buttons because typing a name on a phone in a
++    kitchen is friction nobody needs — tap your name, tap your PIN, you're in.
++    """
++    c = conn()
++    staff = auth.staff_list(c)
+     error = None
+     if request.method == "POST":
+-        if request.form.get("password") == APP_PASSWORD:
+-            session.permanent = True
+-            session["authed"] = True
+-            session["role"] = "admin"
++        # --- staff: name + PIN ---
++        who = request.form.get("staff", type=int)
++        pin = (request.form.get("pin") or "").strip()
++        if who:
++            if auth.check_pin(c, who, pin):
++                user = auth.get_user(c, who)
++                auth.sign_in(c, user)
++                c.close()
++                return redirect(auth.home_url())
++            mins = auth.locked_for(c, who)
++            error = (f"Too many wrong PINs. Try again in {mins} min, "
++                     "or ask Balaji to set a new PIN." if mins
++                     else "Wrong PIN — try again.")
++            c.close()
++            return render_template("login.html", error=error, staff=staff,
++                                   picked=who, login_active=bool(APP_PASSWORD))
++
++        # --- passwords (unchanged) ---
++        pw = request.form.get("password")
++        if APP_PASSWORD and pw == APP_PASSWORD:
++            auth.sign_in_role("owner", "Balaji")
++            auth.log(c, "login", "owner", "password")
++            c.close()
+             # Only follow same-site relative paths (never an external URL).
+             nxt = request.args.get("next") or ""
+             if not nxt.startswith("/") or nxt.startswith("//"):
+                 nxt = url_for("today")
+             return redirect(nxt)
+-        if TEAM_PASSWORD and request.form.get("password") == TEAM_PASSWORD:
+-            session.permanent = True
+-            session["authed"] = True
+-            session["role"] = "team"          # content pages only (content_hub gate)
++        if TEAM_PASSWORD and pw == TEAM_PASSWORD:
++            auth.sign_in_role("content", "team")
++            c.close()
+             return redirect(url_for("content_board"))
+         error = "Wrong password — try again."
+-    return render_template("login.html", error=error)
++    elif session.get("authed"):
++        c.close()
++        return redirect(auth.home_url())
++    # On the laptop (no password set) this page still renders, so Balaji can sign
++    # in as a staff member on purpose and see exactly what they see.
++    c.close()
++    return render_template("login.html", error=error, staff=staff,
++                           picked=request.values.get("staff", type=int),
++                           login_active=bool(APP_PASSWORD))
+ 
+ 
+ @app.route("/logout")
+@@ -125,6 +175,10 @@ def logout():
+ import content_hub                                            # noqa: E402
+ content_hub.register(app)
+ 
++# The kitchen screens (staff phone view) — see kitchen.py.
++import kitchen                                                # noqa: E402
++kitchen.register(app)
++
+ 
+ # ---------------------------------------------------------------------------
+ # Helpers
+@@ -214,6 +268,8 @@ def agent_heartbeat():
+         return
+     if APP_PASSWORD and not session.get("authed"):
+         return
++    if not auth.is_owner():
++        return                    # the digest is Balaji's morning brief, not staff's
+     try:
+         c = conn()
+         agent.run_daily(c)
+@@ -224,6 +280,16 @@ def agent_heartbeat():
+ 
+ @app.context_processor
+ def inject_globals():
++    # Everything below this line is owner-only information — the headline stats
++    # ARE the money. A staff session never gets them anywhere near a template, so
++    # a stray {{ g_stats.overall }} in a kitchen page could not print a figure
++    # even if somebody added one by mistake.
++    if not auth.is_owner():
++        return {"active_page": request.endpoint,
++                "today": date.today().strftime("%Y-%m-%d"),
++                "today_str": date.today().strftime("%Y-%m-%d"),
++                "login_active": bool(APP_PASSWORD),
++                "authed": session.get("authed"), "deployed": bool(APP_PASSWORD)}
+     c = conn()
+     stats = core.headline_stats(c)
+     due = crm.followups_due_count(c)            # CRM follow-ups due → nav badge
+@@ -2096,6 +2162,76 @@ def settings():
+                            today=date.today().strftime("%Y-%m-%d"))
+ 
+ 
++# ---------------------------------------------------------------------------
++# Staff accounts + the audit log (owner only — both are locked by the gate,
++# because auth.ENDPOINT_CAPS doesn't list them for any other role)
++# ---------------------------------------------------------------------------
++@app.route("/staff")
++def staff():
++    c = conn()
++    people = auth.staff_list(c, active_only=False)
++    # Last 40 actions, so the page answers "did he mark tonight's run?" directly.
++    log = auth.recent(c, limit=40)
++    c.close()
++    return render_template("staff.html", people=people, log=log,
++                           roles=[("kitchen", "Kitchen & delivery"),
++                                  ("content", "Content / social media"),
++                                  ("owner", "Owner (full access)")])
++
++
++@app.route("/staff/new", methods=["POST"])
++def staff_new():
++    name = (request.form.get("name") or "").strip()
++    pin = (request.form.get("pin") or "").strip()
++    role_ = request.form.get("role") or "kitchen"
++    if not name or len(pin) < 4:
++        flash("Name and a PIN of at least 4 digits are needed.", "")
++        return redirect(url_for("staff"))
++    c = conn()
++    uid = auth.create_user(c, name, role_, pin,
++                           phone=request.form.get("phone"),
++                           lang_=request.form.get("lang") or "en")
++    auth.log(c, "staff.add", f"user {uid}", f"{name} · {role_}")
++    c.close()
++    flash(f"{name} can now sign in with their PIN.", "ok")
++    return redirect(url_for("staff"))
++
++
++@app.route("/staff/<int:user_id>/pin", methods=["POST"])
++def staff_pin(user_id):
++    pin = (request.form.get("pin") or "").strip()
++    if len(pin) < 4:
++        flash("A PIN needs at least 4 digits.", "")
++        return redirect(url_for("staff"))
++    c = conn()
++    auth.set_pin(c, user_id, pin)
++    auth.log(c, "staff.pin", f"user {user_id}", "PIN reset")
++    c.close()
++    flash("PIN changed.", "ok")
++    return redirect(url_for("staff"))
++
++
++@app.route("/staff/<int:user_id>/active", methods=["POST"])
++def staff_active(user_id):
++    on = request.form.get("on") == "1"
++    c = conn()
++    # Deactivated, never deleted — the audit log has to keep pointing at a real
++    # person, and "who delivered this in August" must still have an answer.
++    auth.set_active(c, user_id, on)
++    auth.log(c, "staff.active", f"user {user_id}", "enabled" if on else "disabled")
++    c.close()
++    flash("Access " + ("restored." if on else "removed."), "ok")
++    return redirect(url_for("staff"))
++
++
++@app.route("/audit")
++def audit():
++    c = conn()
++    log = auth.recent(c, limit=400)
++    c.close()
++    return render_template("audit.html", log=log)
++
++
+ @app.route("/settings/weekdays", methods=["POST"])
+ def settings_weekdays():
+     c = conn()
+diff --git a/content_hub.py b/content_hub.py
+index 12b757a..6eb14e4 100644
+--- a/content_hub.py
++++ b/content_hub.py
+@@ -22,6 +22,7 @@ from datetime import date, datetime, timedelta
+ from flask import (abort, jsonify, redirect, render_template, request,
+                    session, url_for)
+ 
++import auth
+ import db
+ 
+ # Pipeline definition -------------------------------------------------------
+@@ -113,8 +114,13 @@ def now_iso():
+ 
+ 
+ def role():
+-    """admin | team. Local mode (no login configured) is always admin."""
+-    return session.get("role") or "admin"
++    """'admin' (Balaji) or 'team' (an editor friend).
++
++    Roles now live in auth.py for the whole app; this keeps the two names this
++    module was written around so nothing below had to change. auth already maps
++    the old session values, so a phone that was logged in before still works.
++    """
++    return "admin" if auth.is_owner() else "team"
+ 
+ 
+ def actor():
+@@ -162,16 +168,9 @@ def board_stats(c):
+ def register(app):
+     ensure_schema()
+ 
+-    # Pages a team login may reach. Everything else bounces to the board.
+-    team_ok = {"content_board", "content_post", "content_post_status",
+-               "content_post_comment", "content_shoots", "content_tasks",
+-               "content_task_toggle", "content_set_name", "content_sync_api",
+-               "login", "logout", "static"}
+-
+-    @app.before_request
+-    def _content_team_gate():
+-        if session.get("role") == "team" and request.endpoint not in team_ok:
+-            return redirect(url_for("content_board"))
++    # Which pages a content login may reach is now decided in one place for the
++    # whole app — auth.ENDPOINT_CAPS — so this module no longer keeps its own
++    # list. One gate, one place to read, nothing to keep in sync.
+ 
+     @app.context_processor
+     def _content_globals():
+diff --git a/sheet_i18n.py b/sheet_i18n.py
+index 9fa7f7e..e9a4d86 100644
+--- a/sheet_i18n.py
++++ b/sheet_i18n.py
+@@ -191,11 +191,165 @@ COMPONENT_TA = {
+ }
+ 
+ 
++# ---------------------------------------------------------------------------
++# The kitchen SCREENS (the phone app staff use during the shift).
++# ---------------------------------------------------------------------------
++# Kept separate from TEXT above because that set is written for a printed A4 page
++# and this one for a phone held in one hand: shorter words, and wording about
++# tapping rather than ticking. Same two languages, chosen per person on their
++# own account, so Balaji can run the same screens in English.
++UI = {
++    "en": {
++        "dir": "ltr",
++        "app":            "OG Gainz Kitchen",
++        "tab_orders":     "Orders",
++        "tab_prep":       "Prep",
++        "tab_run":        "Run",
++        "logout":         "Log out",
++        "lang_other":     "தமிழ்",
++
++        "tonight":        "Tonight",
++        "today":          "Today",
++        "lunch":          "Lunch",
++        "dinner":         "Dinner",
++        "all":            "All",
++        "orders":         "orders",
++        "no_orders":      "No orders for this slot.",
++        "closed":         "Kitchen is off today.",
++        "pending":        "To deliver",
++        "delivered":      "Delivered",
++        "skipped":        "Skipped",
++        "done_all":       "All delivered. Good work.",
++
++        "mark_delivered": "Delivered",
++        "mark_skipped":   "Skipped",
++        "undo":           "Undo",
++        "call":           "Call",
++        "whatsapp":       "WhatsApp",
++        "map":            "Map",
++        "note":           "Note",
++        "note_add":       "Add a note",
++        "note_ph":        "What happened? (gate locked, no answer, handed to watchman…)",
++        "save":           "Save",
++        "cancel":         "Cancel",
++        "saved":          "Saved",
++
++        "meal":           "Meal",
++        "contents":       "In the box",
++        "address":        "Address",
++        "phone":          "Phone",
++        "timing":         "Preferred time",
++        "meals_left":     "Meals left",
++        "meals_left_hint": "Tell Balaji when this reaches 2 — it needs renewing.",
++        "standing_note":  "Standing note",
++        "day_note":       "Today's note",
++        "no_address":     "No address saved. Ask Balaji before you leave.",
++        "no_pin":         "No map pin — the route cannot include this stop.",
++        "back":           "Back",
++
++        "prep_title":     "Batch prep",
++        "prep_note":      "Total quantities for the whole slot. Tap each line when it is prepped.",
++        "prep_none":      "Nothing to prep for this slot.",
++        "packs":          "Packs to make",
++        "unmapped":       "Contents not saved for these orders — ask Balaji before cooking.",
++
++        "run_title":      "Delivery run",
++        "run_note":       "Tap each stop as you hand it over. Order is the riding order.",
++        "run_open_maps":  "Open the whole route in Maps",
++        "run_none":       "No stops on this run yet.",
++        "stop":           "Stop",
++        "stops":          "stops",
++        "porter":         "Porter",
++        "porter_hand":    "Hand over at",
++        "km":             "km",
++        "eta":            "≈",
++        "est_warn":       "These distances are an estimate, not the measured road distance.",
++
++        "sheet":          "Printed sheet",
++        "who":            "Signed in as",
++    },
++    "ta": {
++        "dir": "ltr",
++        "app":            "OG Gainz சமையலறை",
++        "tab_orders":     "ஆர்டர்கள்",
++        "tab_prep":       "தயாரிப்பு",
++        "tab_run":        "டெலிவரி",
++        "logout":         "வெளியேறு",
++        "lang_other":     "English",
++
++        "tonight":        "இன்று இரவு",
++        "today":          "இன்று",
++        "lunch":          "மதியம்",
++        "dinner":         "இரவு",
++        "all":            "அனைத்தும்",
++        "orders":         "ஆர்டர்கள்",
++        "no_orders":      "இந்த நேரத்திற்கு ஆர்டர் இல்லை.",
++        "closed":         "இன்று சமையலறை விடுமுறை.",
++        "pending":        "கொடுக்க வேண்டியவை",
++        "delivered":      "கொடுத்தாயிற்று",
++        "skipped":        "தவிர்க்கப்பட்டது",
++        "done_all":       "எல்லாம் கொடுத்தாயிற்று. நன்று.",
++
++        "mark_delivered": "கொடுத்தேன்",
++        "mark_skipped":   "தவிர்",
++        "undo":           "மாற்று",
++        "call":           "அழை",
++        "whatsapp":       "WhatsApp",
++        "map":            "வரைபடம்",
++        "note":           "குறிப்பு",
++        "note_add":       "குறிப்பு சேர்",
++        "note_ph":        "என்ன நடந்தது? (கேட் பூட்டியிருந்தது, பதில் இல்லை, காவலரிடம் கொடுத்தேன்…)",
++        "save":           "சேமி",
++        "cancel":         "ரத்து",
++        "saved":          "சேமிக்கப்பட்டது",
++
++        "meal":           "உணவு",
++        "contents":       "பாக்ஸில் உள்ளவை",
++        "address":        "முகவரி",
++        "phone":          "தொலைபேசி",
++        "timing":         "விரும்பிய நேரம்",
++        "meals_left":     "மீதம் உள்ள உணவு",
++        "meals_left_hint": "இது 2 ஆகும்போது பாலாஜியிடம் சொல்லுங்கள் — புதுப்பிக்க வேண்டும்.",
++        "standing_note":  "நிரந்தரக் குறிப்பு",
++        "day_note":       "இன்றைய குறிப்பு",
++        "no_address":     "முகவரி சேமிக்கப்படவில்லை. புறப்படும் முன் பாலாஜியிடம் கேளுங்கள்.",
++        "no_pin":         "வரைபடப் புள்ளி இல்லை — இந்த நிறுத்தம் வழியில் சேராது.",
++        "back":           "பின்",
++
++        "prep_title":     "மொத்த தயாரிப்பு",
++        "prep_note":      "இந்த நேரத்திற்கான மொத்த அளவு. தயாரித்ததும் ஒவ்வொரு வரியையும் தட்டவும்.",
++        "prep_none":      "இந்த நேரத்திற்கு தயாரிப்பு எதுவும் இல்லை.",
++        "packs":          "தயாரிக்க வேண்டிய பாக்கெட்டுகள்",
++        "unmapped":       "இந்த ஆர்டர்களுக்கு விவரம் சேமிக்கப்படவில்லை — சமைக்கும் முன் பாலாஜியிடம் கேளுங்கள்.",
++
++        "run_title":      "டெலிவரி வழி",
++        "run_note":       "ஒவ்வொரு நிறுத்தமாகக் கொடுத்ததும் தட்டவும். இதே வரிசையில் செல்லுங்கள்.",
++        "run_open_maps":  "முழு வழியையும் Maps-இல் திற",
++        "run_none":       "இந்த வழியில் இன்னும் நிறுத்தங்கள் இல்லை.",
++        "stop":           "நிறுத்தம்",
++        "stops":          "நிறுத்தங்கள்",
++        "porter":         "போர்ட்டர்",
++        "porter_hand":    "இங்கே ஒப்படைக்கவும்",
++        "km":             "கி.மீ",
++        "eta":            "≈",
++        "est_warn":       "இந்த தூரங்கள் தோராயமானவை, உண்மையான சாலைத் தூரம் அல்ல.",
++
++        "sheet":          "அச்சிட்ட ஷீட்",
++        "who":            "உள்நுழைந்தவர்",
++    },
++}
++
++
+ def t(lang):
+     """The wording set for a language, defaulting to English."""
+     return TEXT.get(lang, TEXT["en"])
+ 
+ 
++def ui(lang):
++    """The kitchen SCREEN wording for a language, defaulting to English."""
++    return UI.get(lang, UI["en"])
++
++
+ def component_name(name, lang):
+     if lang == "ta":
+         return COMPONENT_TA.get(name, name)
+diff --git a/templates/login.html b/templates/login.html
+index bfdd83a..b7ef5fd 100644
+--- a/templates/login.html
++++ b/templates/login.html
+@@ -21,9 +21,11 @@
+     .sub{margin:0 0 22px;color:#6b7d75;font-size:.9rem;letter-spacing:.04em;text-transform:uppercase}
+     label{display:block;text-align:left;font-size:.82rem;font-weight:700;color:#15241d;
+       margin:0 2px 7px}
+-    input[type=password]{width:100%;padding:14px 15px;font-size:1.05rem;border:1.5px solid #d8e2db;
+-      border-radius:12px;background:#fff;color:#15241d;font-family:inherit;outline:none}
+-    input[type=password]:focus{border-color:#1FA84A;box-shadow:0 0 0 3px rgba(31,168,74,.18)}
++    input[type=password],input[type=tel]{width:100%;padding:14px 15px;font-size:1.05rem;
++      border:1.5px solid #d8e2db;border-radius:12px;background:#fff;color:#15241d;
++      font-family:inherit;outline:none;text-align:center;letter-spacing:.3em}
++    input[type=password]:focus,input[type=tel]:focus{border-color:#1FA84A;
++      box-shadow:0 0 0 3px rgba(31,168,74,.18)}
+     button{width:100%;margin-top:16px;padding:14px;font-size:1.05rem;font-weight:700;
+       border:none;border-radius:12px;background:#1FA84A;color:#04231a;cursor:pointer;
+       font-family:inherit;transition:.15s}
+@@ -31,18 +33,57 @@
+     .err{margin:14px 0 0;padding:11px 13px;border-radius:11px;background:#fbeae8;color:#b13325;
+       font-size:.88rem;font-weight:600}
+     .foot{margin-top:18px;font-size:.74rem;color:#9aa8a1}
++    /* staff name buttons — tap your name, then your PIN */
++    .who{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
++    .who a{flex:1 1 45%;padding:13px 10px;border-radius:12px;border:1.5px solid #d8e2db;
++      background:#fff;color:#15241d;font-weight:700;font-size:.95rem;text-decoration:none}
++    .who a.on{background:#004030;border-color:#004030;color:#F8F5EC}
++    .or{display:flex;align-items:center;gap:10px;margin:20px 0 14px;color:#9aa8a1;
++      font-size:.74rem;letter-spacing:.08em;text-transform:uppercase}
++    .or:before,.or:after{content:"";flex:1;height:1px;background:#dfe7e2}
++    .back{display:inline-block;margin-top:14px;font-size:.8rem;color:#6b7d75;text-decoration:none}
+   </style>
+ </head>
+ <body>
++  {% if picked %}
++  {# --- step 2: this person's PIN --- #}
++  <form class="card" method="post" autocomplete="off">
++    <img class="logo" src="{{ url_for('static', filename='img/logo-forest.svg') }}" alt="OG Gainz">
++    <p class="sub">
++      {% for s in staff %}{% if s.id == picked %}{{ s.name }}{% endif %}{% endfor %}
++    </p>
++    <input type="hidden" name="staff" value="{{ picked }}">
++    <label for="pin">PIN</label>
++    <input id="pin" name="pin" type="password" autofocus required
++           inputmode="numeric" pattern="[0-9]*" autocomplete="off">
++    <button type="submit">Sign in</button>
++    {% if error %}<p class="err">{{ error }}</p>{% endif %}
++    <a class="back" href="{{ url_for('login') }}">‹ Someone else</a>
++  </form>
++
++  {% else %}
++  {# --- step 1: who is this? --- #}
+   <form class="card" method="post" autocomplete="off">
+     <img class="logo" src="{{ url_for('static', filename='img/logo-forest.svg') }}" alt="OG Gainz">
+     <p class="sub">Command Center</p>
++
++    {% if staff %}
++    <div class="who">
++      {% for s in staff %}
++      <a href="{{ url_for('login', staff=s.id) }}">{{ s.name }}</a>
++      {% endfor %}
++    </div>
++    <div class="or">or</div>
++    {% endif %}
++
+     <label for="password">Password</label>
+-    <input id="password" name="password" type="password" autofocus required
+-           inputmode="text" autocapitalize="off" autocomplete="current-password">
++    <input id="password" name="password" type="password" required
++           inputmode="text" autocapitalize="off" autocomplete="current-password"
++           style="letter-spacing:normal;text-align:left">
+     <button type="submit">Sign in</button>
+     {% if error %}<p class="err">{{ error }}</p>{% endif %}
+     <p class="foot">Private — OG Gainz staff only</p>
+   </form>
++  {% endif %}
+ </body>
+ </html>
+diff --git a/templates/more.html b/templates/more.html
+index 21f2109..bc8aeb8 100644
+--- a/templates/more.html
++++ b/templates/more.html
+@@ -59,6 +59,18 @@
+   <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 19V5M4 19h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>
+   Revenue dashboard<span class="spacer"></span>›</a>
+ 
++<a class="linkrow" href="{{ url_for('staff') }}">
++  <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M17 11l2 2 4-4"/></svg>
++  Staff &amp; access — who can sign in<span class="spacer"></span>›</a>
++
++<a class="linkrow" href="{{ url_for('audit') }}">
++  <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
++  Activity log — who did what<span class="spacer"></span>›</a>
++
++<a class="linkrow" href="{{ url_for('kitchen_home') }}">
++  <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg>
++  Kitchen screen — what staff see<span class="spacer"></span>›</a>
++
+ <a class="linkrow" href="{{ url_for('settings') }}">
+   <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.2A1.6 1.6 0 0 0 7 19.3a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 2.7 14H2.5a2 2 0 1 1 0-4h.2A1.6 1.6 0 0 0 4.7 7l-.1-.1A2 2 0 1 1 7.4 4l.1.1A1.6 1.6 0 0 0 10 3.7V3.5a2 2 0 1 1 4 0v.2A1.6 1.6 0 0 0 17 4.7l.1-.1A2 2 0 1 1 19.9 7l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.1a2 2 0 1 1 0 4h-.2"/></svg>
+   Settings, plans &amp; data<span class="spacer"></span>›</a>

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Activity log · OG Gainz{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 style="margin:0">Activity log</h1>
+</div>
+
+<p class="muted" style="margin:-4px 0 14px">
+  Every action taken by anyone other than you, newest first — who marked what
+  delivered, what note they wrote, when they signed in. Kept so a question about a
+  delivery has a factual answer instead of a memory.
+</p>
+
+<div class="card">
+  {% if log %}
+  <table class="small" style="width:100%">
+    <thead>
+      <tr><th style="text-align:left">When</th><th style="text-align:left">Who</th>
+          <th style="text-align:left">Action</th><th style="text-align:left">Detail</th></tr>
+    </thead>
+    <tbody>
+      {% for a in log %}
+      <tr>
+        <td class="muted" style="white-space:nowrap">{{ a.at }}</td>
+        <td><strong>{{ a.who }}</strong> <span class="pill">{{ a.role }}</span></td>
+        <td>{{ a.action }}</td>
+        <td class="muted">{{ a.detail or a.target or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <span class="muted">Nothing logged yet.</span>
+  {% endif %}
+</div>
+
+{% endblock %}

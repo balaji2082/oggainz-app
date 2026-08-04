@@ -1,0 +1,98 @@
+{% extends "kitchen_base.html" %}
+{% block title %}{{ r.name }} · {{ K.app }}{% endblock %}
+
+{% block content %}
+<a class="mini" href="{{ url_for('kitchen_home', slot=back_slot) }}">‹ {{ K.back }}</a>
+
+<h1 style="margin-top:12px">{{ r.name }}</h1>
+<div class="day">{{ label }}{% if r.meal_type %} · {{ K[r.meal_type|lower] }}{% endif %}
+  {% if r.preferred_timing %} · {{ K.timing }}: {{ r.preferred_timing }}{% endif %}</div>
+
+{% if r.status != 'Pending' %}
+<div class="note" style="background:rgba(82,201,117,.13);border-color:rgba(82,201,117,.45)">
+  <b style="color:var(--green)">
+    {{ K.delivered if r.status == 'Delivered' else K.skipped }}</b>
+</div>
+{% endif %}
+
+{# --- what goes in the box --- #}
+<h2>{{ K.contents }}</h2>
+<div class="card">
+  {% if items %}
+    {% for i in items %}
+    <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)">
+      <span style="font-weight:700">{{ i.name }}</span>
+      <span style="margin-left:auto;font-weight:800;color:var(--lime)">{{ i.qty }}</span>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="muted">{{ K.unmapped }}</div>
+  {% endif %}
+</div>
+
+{# --- where it goes --- #}
+<h2>{{ K.address }}{% if address_label %} · {{ address_label }}{% endif %}</h2>
+<div class="card">
+  {% if address %}
+    <div style="font-size:15.5px;line-height:1.5">{{ address }}</div>
+    {% if map_note %}<div class="note"><b>📍</b> {{ map_note }}</div>{% endif %}
+    {% if not map_url %}<div class="warn" style="margin:9px 0 0">{{ K.no_pin }}</div>{% endif %}
+  {% else %}
+    <div class="warn" style="margin:0">{{ K.no_address }}</div>
+  {% endif %}
+  <div class="row">
+    {% if map_url %}<a class="btn ghost" href="{{ map_url }}" target="_blank" rel="noopener">🗺 {{ K.map }}</a>{% endif %}
+    {% if r.phone %}
+      <a class="btn ghost" href="tel:{{ r.phone }}">📞 {{ K.call }}</a>
+      <a class="btn ghost" href="{{ r.phone|wa }}" target="_blank" rel="noopener">{{ K.whatsapp }}</a>
+    {% endif %}
+  </div>
+</div>
+
+{# --- meals left: the renewal signal Balaji wants flagged --- #}
+{% if r.remaining_meals is not none and r.subscription_id %}
+<h2>{{ K.meals_left }}</h2>
+<div class="card">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span style="font-size:34px;font-weight:800;color:{{ 'var(--orange)' if r.remaining_meals <= 2 else 'var(--lime)' }}">
+      {{ r.remaining_meals }}</span>
+    {% if r.remaining_meals <= 2 %}<span class="muted">{{ K.meals_left_hint }}</span>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# --- notes --- #}
+{% if r.sub_notes %}
+<h2>{{ K.standing_note }}</h2>
+<div class="card"><div style="font-size:14.5px">{{ r.sub_notes }}</div></div>
+{% endif %}
+
+<h2>{{ K.day_note }}</h2>
+<div class="card">
+  <form method="post" action="{{ url_for('kitchen_note', did=r.id) }}">
+    <textarea name="note" rows="3" placeholder="{{ K.note_ph }}"
+      style="width:100%;background:rgba(0,0,0,.25);border:1px solid var(--line);
+             color:var(--ink);border-radius:10px;padding:10px;font:inherit">{{ r.day_note }}</textarea>
+    <div class="row"><button class="btn" type="submit">{{ K.save }}</button></div>
+  </form>
+</div>
+
+{# --- mark --- #}
+<div class="row" style="margin-top:18px">
+  {% if r.status == 'Pending' %}
+    <form method="post" action="{{ url_for('kitchen_mark', did=r.id) }}" style="flex:1;display:flex">
+      <input type="hidden" name="status" value="Delivered">
+      <button class="btn go" type="submit" style="width:100%">✓ {{ K.mark_delivered }}</button>
+    </form>
+    <form method="post" action="{{ url_for('kitchen_mark', did=r.id) }}" style="flex:1;display:flex">
+      <input type="hidden" name="status" value="Skipped">
+      <button class="btn skip" type="submit" style="width:100%">{{ K.mark_skipped }}</button>
+    </form>
+  {% else %}
+    <form method="post" action="{{ url_for('kitchen_mark', did=r.id) }}" style="flex:1;display:flex">
+      <input type="hidden" name="status" value="Pending">
+      <button class="btn ghost" type="submit" style="width:100%">↺ {{ K.undo }}</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

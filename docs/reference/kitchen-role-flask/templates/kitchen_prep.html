@@ -1,0 +1,71 @@
+{% extends "kitchen_base.html" %}
+{% block title %}{{ K.tab_prep }} · {{ K.app }}{% endblock %}
+
+{% block content %}
+<h1>{{ K.prep_title }}</h1>
+<div class="day">{{ K[slot|lower] }} · {{ meals }} {{ K.orders }}</div>
+
+<div class="slots">
+  <a href="{{ url_for('kitchen_prep', slot=slot) }}" class="on">{{ K[slot|lower] }}</a>
+  <a href="{{ url_for('kitchen_prep', slot=other) }}">{{ K[other|lower] }}</a>
+</div>
+
+{% if unmapped %}
+<div class="warn">
+  {{ K.unmapped }}
+  <div style="margin-top:5px;font-weight:700">
+    {% for u in unmapped %}{{ u.name }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+</div>
+{% endif %}
+
+{% if not comps %}
+  <div class="empty">{{ K.prep_none }}</div>
+{% else %}
+<div class="muted" style="margin-bottom:11px">{{ K.prep_note }}</div>
+<ul class="plist">
+  {% for c in comps %}
+  {% set key = slot ~ '|' ~ c.raw %}
+  <li class="{{ 'on' if key in ticks }}" onclick="ktick(this,'{{ key }}')">
+    <span class="box">✓</span>
+    <span style="min-width:0">
+      <span class="pn">{{ c.emoji }} {{ c.name }}</span>
+      {% if c.breakdown %}<div class="pb">{{ c.breakdown }}</div>{% endif %}
+      {# already a joined string from menu._finish — never re-join it #}
+      {% if c.notes %}<div class="pb">{{ c.notes }}</div>{% endif %}
+    </span>
+    <span class="pq">{{ c.display }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if packs %}
+<h2>{{ K.packs }}</h2>
+{% for p in packs %}
+<div class="card">
+  <div class="top">
+    <div><div class="nm" style="font-size:15.5px">{{ p.label }}</div>
+      {% if p.detail %}<div class="sub">{{ p.detail }}</div>{% endif %}</div>
+    <span class="st" style="margin-left:auto">× {{ p.n }}</span>
+  </div>
+  <div class="muted" style="margin-top:7px">
+    {% for o in p.orders %}{{ o.name }}{% if o.note %} <b style="color:var(--orange)">({{ o.note }})</b>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+var SAVED = {{ K.saved|tojson }};
+function ktick(li, key){
+  var on = !li.classList.contains('on');
+  li.classList.toggle('on', on);                 // optimistic: the tap feels instant
+  kpost('/k/prep/tick', {key:key, on: on ? '1' : '0'}).then(function(res){
+    if(!res || !res.ok){ li.classList.toggle('on', !on); return; }   // put it back
+    ktoast(SAVED);
+  });
+}
+</script>
+{% endblock %}

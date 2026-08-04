@@ -1,0 +1,129 @@
+{% extends "kitchen_base.html" %}
+{% block title %}{{ K.tab_run }} · {{ K.app }}{% endblock %}
+
+{% block content %}
+<h1>{{ K.run_title }}</h1>
+<div class="day">{{ K[slot|lower] }} · {{ route.n_riding }} {{ K.stops }}
+  {%- if route.est_km %} · {{ route.est_km }} {{ K.km }}{% endif %}</div>
+
+<div class="slots">
+  <a href="{{ url_for('kitchen_run', slot=slot) }}" class="on">{{ K[slot|lower] }}</a>
+  <a href="{{ url_for('kitchen_run', slot=other) }}">{{ K[other|lower] }}</a>
+</div>
+
+{% if batches|length > 1 %}
+<div class="slots">
+  <a href="{{ url_for('kitchen_run', slot=slot) }}" class="{{ 'on' if batch is none }}">{{ K.all }}</a>
+  {% for b in batches %}
+  <a href="{{ url_for('kitchen_run', slot=slot, batch=b.batch_no) }}"
+     class="{{ 'on' if batch == b.batch_no }}">{{ b.name or ('Route ' ~ b.batch_no) }}
+     <span class="n">{{ b.n }}</span></a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if route.maps_url and route.stops %}
+<div class="row" style="margin-bottom:14px">
+  <a class="btn" href="{{ route.maps_url }}" target="_blank" rel="noopener">🗺 {{ K.run_open_maps }}</a>
+</div>
+{% endif %}
+
+{% if not route.measured %}
+<div class="warn">{{ K.est_warn }}</div>
+{% endif %}
+
+{% if not route.stops %}
+  <div class="empty">{{ K.run_none }}</div>
+{% else %}
+<div class="muted" style="margin-bottom:11px">{{ K.run_note }}</div>
+
+{% for s in route.stops %}
+  {% if s.is_handoff_point %}
+    {# A porter handoff: one visit, several bags. Each order is marked separately. #}
+    <div class="card">
+      <div class="top">
+        <span class="seq">{{ s.seq }}</span>
+        <div style="min-width:0">
+          <div class="nm">{{ K.porter_hand }}: {{ s.name }}</div>
+          <div class="sub">{{ s.locality }}{% if s.eta %} · {{ K.eta }} {{ s.eta }}{% endif %}
+            {%- if s.km_from_prev %} · {{ s.km_from_prev }} {{ K.km }}{% endif %}</div>
+        </div>
+        <span class="st" style="margin-left:auto">{{ K.porter }}</span>
+      </div>
+      {% for o in s.orders %}
+      <div class="row" style="align-items:center" id="o{{ o.delivery_id }}">
+        <span style="flex:1;font-weight:700">{{ o.name }}</span>
+        {% if status.get(o.delivery_id) == 'Delivered' %}
+          <span class="st d" data-st="{{ o.delivery_id }}">{{ K.delivered }}</span>
+        {% else %}
+          <button class="btn go sm" data-st="{{ o.delivery_id }}"
+                  onclick="kdone({{ o.delivery_id }}, this)">✓ {{ K.mark_delivered }}</button>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {% set done = status.get(s.delivery_id) in ['Delivered','Skipped'] %}
+    <div class="card {{ 'done' if done }}" id="o{{ s.delivery_id }}">
+      <div class="top">
+        <span class="seq">{{ s.seq }}</span>
+        <div style="min-width:0">
+          <a href="{{ url_for('kitchen_order', did=s.delivery_id) }}">
+            <div class="nm">{{ s.name }}</div>
+            <div class="sub">{{ s.address or s.locality }}</div>
+            <div class="sub">{% if s.eta %}{{ K.eta }} {{ s.eta }}{% endif %}
+              {%- if s.km_from_prev %} · {{ s.km_from_prev }} {{ K.km }}{% endif %}
+              {%- if s.zone %} · {{ s.zone }}{% endif %}</div>
+          </a>
+        </div>
+      </div>
+      {% if s.map_note %}<div class="note"><b>📍</b> {{ s.map_note }}</div>{% endif %}
+      {% if s.day_note or s.sub_notes %}
+      <div class="note"><b>{{ K.note }}:</b>
+        {{ [s.sub_notes, s.day_note]|select|join(' · ') }}</div>
+      {% endif %}
+      <div class="row" data-actions="{{ s.delivery_id }}">
+        {% if done %}
+          <span class="st d" style="margin:0" data-st="{{ s.delivery_id }}">
+            {{ K.delivered if status.get(s.delivery_id)=='Delivered' else K.skipped }}</span>
+        {% else %}
+          <button class="btn go" onclick="kdone({{ s.delivery_id }}, this)">✓ {{ K.mark_delivered }}</button>
+        {% endif %}
+        {% if s.lat is not none %}
+        <a class="btn ghost sm" target="_blank" rel="noopener"
+           href="https://www.google.com/maps/search/?api=1&query={{ s.lat }},{{ s.lng }}">🗺</a>
+        {% endif %}
+        {% if s.phone %}<a class="btn ghost sm" href="tel:{{ s.phone }}">📞</a>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endfor %}
+{% endif %}
+
+{% if route.porter_direct %}
+<h2>{{ K.porter }}</h2>
+{% for s in route.porter_direct %}
+<div class="card">
+  <div class="nm" style="font-size:15.5px">{{ s.name }}</div>
+  <div class="sub">{{ s.address or s.locality }}</div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+var DONE = {{ K.delivered|tojson }}, SAVED = {{ K.saved|tojson }};
+function kdone(id, btn){
+  kpost('/k/order/'+id+'/mark', {status:'Delivered'}).then(function(res){
+    if(!res || !res.ok) return;
+    var span = document.createElement('span');
+    span.className = 'st d'; span.style.margin = '0'; span.textContent = DONE;
+    btn.replaceWith(span);
+    var card = document.getElementById('o'+id);
+    if(card && card.classList.contains('card')) card.classList.add('done');
+    ktoast(SAVED);
+  });
+}
+</script>
+{% endblock %}

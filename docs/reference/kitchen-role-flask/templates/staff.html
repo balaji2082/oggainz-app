@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Staff · OG Gainz{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 style="margin:0">Staff &amp; access</h1>
+</div>
+
+<p class="muted" style="margin:-4px 0 14px">
+  Everyone who can sign in, and what they can reach. Staff sign in with their own
+  name and PIN rather than a shared password, so every delivery marked and every
+  note written has a name against it.
+</p>
+
+<div class="card">
+  <strong>What the kitchen role can and cannot do</strong>
+  <div class="row" style="gap:18px;flex-wrap:wrap;margin-top:8px">
+    <div style="flex:1;min-width:220px">
+      <div class="small" style="font-weight:700;margin-bottom:4px">Can</div>
+      <ul class="small muted" style="margin:0;padding-left:18px">
+        <li>See today&rsquo;s orders and mark delivered / skipped</li>
+        <li>Write a note against one order</li>
+        <li>Tick off the prep list</li>
+        <li>See the delivery address, phone and map pin</li>
+        <li>See meals remaining, so a renewal gets flagged</li>
+        <li>Open and print the shift sheet</li>
+      </ul>
+    </div>
+    <div style="flex:1;min-width:220px">
+      <div class="small" style="font-weight:700;margin-bottom:4px">Cannot</div>
+      <ul class="small muted" style="margin:0;padding-left:18px">
+        <li>See any price, revenue or payment — these screens have no money on them at all</li>
+        <li>Create, edit, pause, renew or delete a subscription</li>
+        <li>Change the menu, plans or brochure</li>
+        <li>Reach settings, exports, backups, CRM or invoices</li>
+        <li>Change any day other than today</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Add ---------------- #}
+<div class="card">
+  <strong>Add someone</strong>
+  <form method="post" action="{{ url_for('staff_new') }}" class="row"
+        style="align-items:flex-end;gap:10px;margin-top:10px;flex-wrap:wrap">
+    <div><label>Name</label><input name="name" required placeholder="Subramani"></div>
+    <div><label>Phone</label><input name="phone" placeholder="optional"></div>
+    <div><label>Role</label>
+      <select name="role">
+        {% for val, lbl in roles %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}
+      </select></div>
+    <div><label>Screen language</label>
+      <select name="lang"><option value="en">English</option><option value="ta">தமிழ் Tamil</option></select></div>
+    <div><label>PIN (4–6 digits)</label>
+      <input name="pin" required inputmode="numeric" pattern="[0-9]{4,6}" placeholder="••••"></div>
+    <button type="submit">Add</button>
+  </form>
+  <p class="small muted" style="margin:8px 0 0">
+    Tell them the PIN yourself — it is stored scrambled, so nobody (including this
+    page) can read it back. If they forget it, set a new one below.
+  </p>
+</div>
+
+{# ---------------- People ---------------- #}
+{% for p in people %}
+<div class="card" style="{{ 'opacity:.6' if not p.active }}">
+  <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
+    <div style="flex:1;min-width:180px">
+      <strong>{{ p.name }}</strong>
+      <span class="pill">{{ p.role }}</span>
+      {% if not p.active %}<span class="pill" style="border-color:#e4574f;color:#e4574f">no access</span>{% endif %}
+      <div class="small muted">
+        {{ p.phone or '—' }} ·
+        {{ 'தமிழ்' if p.lang == 'ta' else 'English' }} ·
+        {% if p.last_seen %}last seen {{ p.last_seen }}{% else %}never signed in{% endif %}
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('staff_pin', user_id=p.id) }}" class="row"
+          style="gap:6px;align-items:center">
+      <input name="pin" inputmode="numeric" pattern="[0-9]{4,6}" placeholder="new PIN"
+             style="width:110px" required>
+      <button class="ghost" type="submit">Reset PIN</button>
+    </form>
+
+    <form method="post" action="{{ url_for('staff_active', user_id=p.id) }}">
+      <input type="hidden" name="on" value="{{ 0 if p.active else 1 }}">
+      <button class="ghost" type="submit">{{ 'Remove access' if p.active else 'Restore access' }}</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="card"><span class="muted">Nobody added yet — you are the only login.</span></div>
+{% endfor %}
+
+{# ---------------- Recent activity ---------------- #}
+<div class="card">
+  <div class="row" style="align-items:center">
+    <strong>Recent activity</strong>
+    <span class="spacer"></span>
+    <a class="small" href="{{ url_for('audit') }}">See all →</a>
+  </div>
+  {% if log %}
+  <table class="small" style="width:100%;margin-top:8px">
+    <tbody>
+      {% for a in log %}
+      <tr>
+        <td class="muted" style="white-space:nowrap">{{ a.at }}</td>
+        <td><strong>{{ a.who }}</strong></td>
+        <td>{{ a.action }}</td>
+        <td class="muted">{{ a.detail or a.target or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="small muted" style="margin:6px 0 0">Nothing logged yet.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

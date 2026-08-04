@@ -27,6 +27,9 @@ copy, and never the source of truth.
 | [03-data-model.md](03-data-model.md) | Tables, the API boundary, auth, security, and how none of this endangers the live business. |
 | [04-parity-and-cutover.md](04-parity-and-cutover.md) | What matching the Command Center actually costs, how parity is proven, and how it stands down to a permanent backup. |
 
+Plus [reference/](reference/) — working prototypes kept for their design
+decisions, not their code. Nothing in there is part of the app or runs.
+
 ## Reading order
 
 Start with **01**. Sections marked **[LAW]** are invariants — breaking one
@@ -47,11 +50,25 @@ something the Command Center does not do and this app should.
 
 ## Status
 
-Specification. Nothing is built yet.
+Against the build order in [03 §8](03-data-model.md#8-build-order):
 
-The one step that touches the live business is the additive `db.py` migration in
-[03 §8](03-data-model.md#8-build-order), and it is defaults-only: no existing
-pack changes behaviour.
+| Step | | |
+|---|---|---|
+| 1 | `db.py` migration — new columns, `skip_requests`, app settings | **written, verified, not deployed** |
+| 2 | `customer_api.py` — read endpoints + token auth | **written, tested, not deployed** |
+| 3 | Neon Postgres, `accounts`, `invites`, "Invite to app" | not started |
+| 4 | Next.js skeleton, Google sign-in, invite redemption | skeleton exists, no auth |
+| 5 | Read-only customer app | first slice reads a local snapshot |
+
+Steps 1 and 2 live in the Command Center repo (`Projects/OG-Gainz-OS`) and reach
+the server the usual way: `git pull` + Reload. Step 1 was verified by recording
+every business number, applying the migration, and recomputing all of them —
+revenue, every subscription's status and meal counts, today's orders and the prep
+list were identical, and no existing pack starts expiring. Step 2 adds no write
+path of any kind and is off entirely unless `OG_API_TOKEN` is set.
+
+The app itself still reads `data/snapshot.db` — a copy, opened read-only. It
+cannot deploy usefully until steps 3 and 4 give it a real data source.
 
 ## The open decision
 
@@ -60,4 +77,4 @@ pack changes behaviour.
 **keep** them as a Python service behind an API. Recommendation is to port, gated
 behind a nightly diff harness that proves both engines agree. Not yet decided.
 
-*Last updated 1 Aug 2026.*
+*Last updated 4 Aug 2026.*
