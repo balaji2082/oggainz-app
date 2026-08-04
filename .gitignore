@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the placeholder template, which must be committed so anyone
+# setting the project up knows which variables exist. It contains no
+# credential of any kind -- docs/03 s7.
+!.env.example
 
 # vercel
 .vercel
