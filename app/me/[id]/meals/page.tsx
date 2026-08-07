@@ -1,8 +1,15 @@
 import { notFound } from "next/navigation";
 
 import Shell from "@/components/Shell";
-import { addDays, longDate, relativeDay, shortDate } from "@/lib/format";
-import { getCustomer, getMeals, getUpcoming, todayISO } from "@/lib/snapshot";
+import StaleNotice from "@/components/StaleNotice";
+import { longDate, relativeDay, shortDate } from "@/lib/format";
+import {
+  getCustomerData,
+  mealsAfter,
+  mealsBefore,
+  mealsOn,
+  todayISO,
+} from "@/lib/data";
 import type { Meal } from "@/lib/types";
 
 /**
@@ -19,20 +26,19 @@ export default async function Meals({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const customer = getCustomer(id);
-  if (!customer) notFound();
+  const data = await getCustomerData(id);
+  if (!data.customer) notFound();
 
   const today = todayISO();
   // Ninety days back is more than a full monthly pack, so a customer can always
   // see the whole of the pack they are on.
-  const past = getMeals(id, addDays(today, -90), addDays(today, -1))
-    .slice()
-    .reverse();
-  const todays = getMeals(id, today, today);
-  const upcoming = getUpcoming(id, 14);
+  const past = mealsBefore(data, today);
+  const todays = mealsOn(data, today);
+  const upcoming = mealsAfter(data, today, 14);
 
   return (
     <Shell customerId={id} active="meals">
+      <StaleNotice asOf={data.asOf} />
       <p className="font-display text-[22px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
         Your meals
       </p>
@@ -51,7 +57,7 @@ export default async function Meals({
       {upcoming.length > 0 && (
         <Section title="Coming up">
           {upcoming.map((m) => (
-            <Row key={`u-${m.id}-${m.date}`} meal={m} today={today} />
+            <Row key={`u-${m.id}-${m.date}-${m.slot}`} meal={m} today={today} />
           ))}
           <li className="px-4 py-3">
             <p className="text-[11.5px] leading-4 text-[var(--og-text-muted)]">

@@ -2,16 +2,16 @@ import { notFound } from "next/navigation";
 
 import PackCard from "@/components/PackCard";
 import Shell from "@/components/Shell";
+import StaleNotice from "@/components/StaleNotice";
 import TodayCard from "@/components/TodayCard";
-import { addDays, relativeDay, shortDate } from "@/lib/format";
 import {
-  getCustomer,
-  getMeals,
-  getPacks,
-  getUpcoming,
+  getCustomerData,
   isOperatingDay,
+  mealsAfter,
+  mealsOn,
   todayISO,
-} from "@/lib/snapshot";
+} from "@/lib/data";
+import { relativeDay, shortDate } from "@/lib/format";
 
 export default async function CustomerHome({
   params,
@@ -20,18 +20,20 @@ export default async function CustomerHome({
 }) {
   const { id } = await params;
   // Access is checked once for every /me/[id] screen, in layout.tsx.
-  const customer = getCustomer(id);
-  if (!customer) notFound();
+  const data = await getCustomerData(id);
+  if (!data.customer) notFound();
 
   const today = todayISO();
-  const packs = getPacks(id);
-  const todays = getMeals(id, today, today);
-  const upcoming = getUpcoming(id, 5);
+  const packs = data.packs;
+  const todays = mealsOn(data, today);
+  const upcoming = mealsAfter(data, today, 5);
   const packById = new Map(packs.map((p) => [p.id, p]));
-  const firstName = customer.name.split(" ")[0];
+  const firstName = data.customer.name.split(" ")[0];
 
   return (
     <Shell customerId={id} active="home">
+      <StaleNotice asOf={data.asOf} />
+
       <p className="font-display text-[22px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
         Hey {firstName}
       </p>
@@ -59,7 +61,7 @@ export default async function CustomerHome({
             pack={packs[0]}
             dateISO={today}
             todayISO={today}
-            kitchenOpen={isOperatingDay(today)}
+            kitchenOpen={isOperatingDay(data, today)}
           />
         )}
       </div>
@@ -72,7 +74,7 @@ export default async function CustomerHome({
           <ul className="overflow-hidden rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)]">
             {upcoming.map((m, i) => (
               <li
-                key={m.id}
+                key={`${m.id}-${m.date}-${m.slot}`}
                 className={
                   i > 0
                     ? "flex items-center gap-3 border-t border-[var(--og-border)] px-4 py-3.5"

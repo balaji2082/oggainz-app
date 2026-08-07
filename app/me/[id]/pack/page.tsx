@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 
 import Shell from "@/components/Shell";
 import { componentLabel, shortDate } from "@/lib/format";
-import { getCustomer, getPacks } from "@/lib/snapshot";
+import StaleNotice from "@/components/StaleNotice";
+import { getCustomerData } from "@/lib/data";
 import type { Pack } from "@/lib/types";
 
 /**
@@ -17,15 +18,16 @@ export default async function MyPack({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const customer = getCustomer(id);
-  if (!customer) notFound();
+  const data = await getCustomerData(id);
+  if (!data.customer) notFound();
 
-  const packs = getPacks(id);
+  const packs = data.packs;
   const live = packs.filter((p) => p.status === "Active" || p.status === "Ending Soon");
   const finished = packs.filter((p) => !live.includes(p));
 
   return (
     <Shell customerId={id} active="pack">
+      <StaleNotice asOf={data.asOf} />
       <p className="font-display text-[22px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
         {live.length === 1 ? "Your pack" : "Your packs"}
       </p>

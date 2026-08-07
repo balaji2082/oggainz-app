@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 
 import Shell from "@/components/Shell";
 import { rupees, shortDate } from "@/lib/format";
-import { getCustomer, getInvoices, getSettings } from "@/lib/snapshot";
+import StaleNotice from "@/components/StaleNotice";
+import { getCustomerData } from "@/lib/data";
 
 /**
  * Your details, your bills, and the way out.
@@ -16,14 +17,16 @@ export default async function Account({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const customer = getCustomer(id);
-  if (!customer) notFound();
+  const data = await getCustomerData(id);
+  if (!data.customer) notFound();
 
-  const invoices = getInvoices(id);
-  const settings = getSettings();
+  const customer = data.customer;
+  const invoices = data.invoices;
+  const settings = data.settings;
 
   return (
     <Shell customerId={id} active="account">
+      <StaleNotice asOf={data.asOf} />
       <p className="font-display text-[22px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
         Account
       </p>
