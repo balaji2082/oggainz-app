@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
+import { currentSession } from "@/lib/current-user";
 import PackCard from "@/components/PackCard";
 import Shell from "@/components/Shell";
 import TodayCard from "@/components/TodayCard";
@@ -19,6 +20,17 @@ export default async function CustomerHome({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  // [LAW] docs/03 §5.1 — a customer id in the URL proves nothing; it is typed
+  // by the browser. In a real deployment the session decides whose data this
+  // is, and asking for someone else's simply returns you to your own. The
+  // development picker (guarded the same way as `/`) may still pass any id.
+  if (process.env.NODE_ENV === "production" && !process.env.OG_ALLOW_PICKER) {
+    const session = await currentSession();
+    if (!session) redirect("/");
+    if (session.customerId !== id) redirect(`/me/${session.customerId}`);
+  }
+
   const customer = getCustomer(id);
   if (!customer) notFound();
 
