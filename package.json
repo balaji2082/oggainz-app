@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/snapshot.mjs",
     "dev": "next dev",
+    "predev:phone": "node scripts/snapshot.mjs",
+    "dev:phone": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "snapshot": "node scripts/snapshot.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "db:check": "node scripts/db-check.mjs"
   },
