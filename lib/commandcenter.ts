@@ -85,6 +85,22 @@ export async function fetchAddresses(
   return data.addresses ?? [];
 }
 
+export async function fetchCustomer(
+  customerId: string
+): Promise<{ id: string; name: string; phone: string | null } | null> {
+  try {
+    const data = await get<{
+      ok: boolean;
+      customer: { id: string; name: string; phone: string | null };
+    }>(`/api/v1/customer/${encodeURIComponent(customerId)}`);
+    return data.customer ?? null;
+  } catch (error) {
+    // A 404 means no such customer — a real answer, not a failure to reach it.
+    if (error instanceof CommandCenterDown && /404/.test(error.message)) return null;
+    throw error;
+  }
+}
+
 export async function fetchPacks(customerId: string) {
   const data = await get<{ ok: boolean; packs: unknown[] }>(
     `/api/v1/customer/${encodeURIComponent(customerId)}/packs`
