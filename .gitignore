@@ -47,3 +47,6 @@ data/
 
 .vercel
 .env*
+
+# Local setup notes containing tokens — never committed
+PYTHONANYWHERE-SETUP.txt
