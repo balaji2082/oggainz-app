@@ -9,6 +9,7 @@ import {
   unlinkCustomer,
 } from "@/lib/accounts";
 import { revalidatePath } from "next/cache";
+import { approveRequest, closeRequest, pendingRequests } from "@/lib/requests";
 import { fetchCustomer } from "@/lib/commandcenter";
 import { currentSession } from "@/lib/current-user";
 import { isOwnerEmail } from "@/lib/session";
@@ -51,6 +52,7 @@ export default async function Admin({
 
   const { customer: customerId } = await searchParams;
   const linked = await linkedAccounts();
+  const requests = await pendingRequests();
 
   /**
    * Remove a customer's access.
@@ -61,6 +63,30 @@ export default async function Admin({
    * permanent. Re-checks ownership inside the action: a server action is a URL,
    * and the page's guard does not protect it.
    */
+  /** Shared guard: a server action is a URL, so each one re-checks. */
+  async function assertOwner() {
+    "use server";
+    const s = await currentSession();
+    if (!s) return false;
+    return s.owner === true || isOwnerEmail(await accountEmail(s.accountId));
+  }
+
+  async function decide(formData: FormData) {
+    "use server";
+    if (!(await assertOwner())) return;
+    const id = String(formData.get("id") ?? "");
+    const action = String(formData.get("action") ?? "");
+    if (!id) return;
+    if (action === "approve") {
+      await approveRequest(id, String(formData.get("customer_id") ?? ""));
+    } else if (action === "decline") {
+      await closeRequest(id, "declined");
+    } else if (action === "handled") {
+      await closeRequest(id, "handled");
+    }
+    revalidatePath("/admin");
+  }
+
   async function unlink(formData: FormData) {
     "use server";
     const s = await currentSession();
@@ -178,6 +204,88 @@ export default async function Admin({
           )}
         </section>
       )}
+
+      <section className="mt-10">
+        <h2 className="mb-3 font-display text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--og-text-muted)]">
+          Waiting for you {requests.length > 0 && `(${requests.length})`}
+        </h2>
+        {requests.length === 0 ? (
+          <p className="rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)] p-4 text-[13.5px] text-[var(--og-text-muted)]">
+            Nobody waiting.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {requests.map((r) => (
+              <li
+                key={r.id}
+                className="rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)] p-4"
+              >
+                <p className="text-[15px] font-semibold text-[var(--og-text)]">
+                  {r.display_name ?? "Someone"}{" "}
+                  <span className="text-[12px] font-normal text-[var(--og-text-muted)]">
+                    {r.kind === "subscriber" ? "· says they subscribe" : "· wants to start"}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-[var(--og-text-muted)]">
+                  {r.phone} · {r.email ?? "no email"}
+                  {r.goal ? ` · ${r.goal}` : ""}
+                </p>
+
+                {r.kind === "subscriber" ? (
+                  <form action={decide} className="mt-3 flex flex-wrap gap-2">
+                    <input type="hidden" name="id" value={r.id} />
+                    <input
+                      name="customer_id"
+                      placeholder="C001"
+                      autoCapitalize="characters"
+                      className="w-28 rounded-[10px] border border-[var(--og-border)] bg-white px-3 py-2 text-[13px]"
+                    />
+                    <button
+                      name="action"
+                      value="approve"
+                      className="rounded-[10px] bg-[var(--og-forest)] px-4 py-2 text-[13px] font-semibold text-white"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      name="action"
+                      value="decline"
+                      className="rounded-[10px] border border-[var(--og-border)] px-4 py-2 text-[13px] font-semibold text-[var(--og-text-muted)]"
+                    >
+                      Decline
+                    </button>
+                  </form>
+                ) : (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <a
+                      target="_blank"
+                      rel="noopener"
+                      href={`https://wa.me/91${r.phone}`}
+                      className="rounded-[10px] bg-[var(--og-forest)] px-4 py-2 text-[13px] font-semibold text-white"
+                    >
+                      WhatsApp them
+                    </a>
+                    <form action={decide}>
+                      <input type="hidden" name="id" value={r.id} />
+                      <button
+                        name="action"
+                        value="handled"
+                        className="rounded-[10px] border border-[var(--og-border)] px-4 py-2 text-[13px] font-semibold text-[var(--og-text-muted)]"
+                      >
+                        Mark handled
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 px-1 text-[11.5px] leading-4 text-[var(--og-text-muted)]">
+          Approving links that Google account to the customer id you type — check
+          the number matches the person before you do.
+        </p>
+      </section>
 
       <section className="mt-10">
         <h2 className="mb-3 font-display text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--og-text-muted)]">

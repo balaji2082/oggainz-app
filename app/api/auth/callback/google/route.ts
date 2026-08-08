@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { audit, redeemInvite, sql } from "@/lib/accounts";
 import { exchangeCode, FLOW_COOKIE, openFlow } from "@/lib/google";
 import { cookieOptions, isOwnerEmail, SESSION_COOKIE, sign } from "@/lib/session";
+import { PENDING_COOKIE, pendingCookieOptions, sealPending } from "@/lib/pending";
 
 /**
  * Google sends the customer back here.
@@ -87,7 +88,23 @@ export async function GET(request: NextRequest) {
         response.cookies.delete(FLOW_COOKIE);
         return response;
       }
-      return fail(request, "unknown");
+      // Not a customer and not the owner. Rather than a dead end reading "no
+      // account yet", send them to /connect to say who they are — a subscriber
+      // whose Google account isn't linked, or somebody new. Their identity is
+      // already proven by Google; it rides along in a short signed cookie
+      // because there is no session to put it in yet.
+      const response = NextResponse.redirect(new URL("/connect", request.nextUrl.origin));
+      response.cookies.set(
+        PENDING_COOKIE,
+        await sealPending({
+          sub: identity.sub,
+          email: identity.email,
+          name: identity.name,
+        }),
+        pendingCookieOptions()
+      );
+      response.cookies.delete(FLOW_COOKIE);
+      return response;
     }
     accountId = account.id;
     customerId = account.customer_id;
