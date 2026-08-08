@@ -10,7 +10,7 @@ import {
 } from "@/lib/accounts";
 import { revalidatePath } from "next/cache";
 import { approveRequest, closeRequest, pendingRequests } from "@/lib/requests";
-import { fetchCustomer } from "@/lib/commandcenter";
+import { fetchCustomer, searchCustomers, type CustomerMatch } from "@/lib/commandcenter";
 import { currentSession } from "@/lib/current-user";
 import { isOwnerEmail } from "@/lib/session";
 
@@ -53,6 +53,16 @@ export default async function Admin({
   const { customer: customerId } = await searchParams;
   const linked = await linkedAccounts();
   const requests = await pendingRequests();
+
+  // Turn "someone with this number wants in" into "this is Ashok, C001, one
+  // active pack". Looked up here rather than left for Balaji to go and find,
+  // because the whole point of approving is that he recognises the person.
+  const matches = new Map<string, CustomerMatch[]>();
+  await Promise.all(
+    requests.map(async (r) => {
+      matches.set(r.id, await searchCustomers(r.phone));
+    })
+  );
 
   /**
    * Remove a customer's access.
@@ -231,6 +241,10 @@ export default async function Admin({
                   {r.goal ? ` · ${r.goal}` : ""}
                 </p>
 
+                {r.kind === "subscriber" && (
+                  <MatchNote found={matches.get(r.id) ?? []} phone={r.phone} />
+                )}
+
                 {r.kind === "subscriber" ? (
                   <form action={decide} className="mt-3 flex flex-wrap gap-2">
                     <input type="hidden" name="id" value={r.id} />
@@ -238,6 +252,14 @@ export default async function Admin({
                       name="customer_id"
                       placeholder="C001"
                       autoCapitalize="characters"
+                      // Pre-filled when exactly one customer has that number.
+                      // More than one, or none, and it stays empty on purpose:
+                      // a guess here links the wrong person to somebody's meals.
+                      defaultValue={
+                        (matches.get(r.id) ?? []).length === 1
+                          ? matches.get(r.id)![0].id
+                          : ""
+                      }
                       className="w-28 rounded-[10px] border border-[var(--og-border)] bg-white px-3 py-2 text-[13px]"
                     />
                     <button
@@ -331,5 +353,39 @@ export default async function Admin({
         free plan blocks it from calling this app. Use this page instead.
       </p>
     </main>
+  );
+}
+
+/**
+ * What the phone number turned up.
+ *
+ * Says plainly when nothing matched, because that is the interesting case: the
+ * number they typed is not one we deliver to, so either they mistyped it or
+ * they are not the customer they say they are. Either way it is worth pausing
+ * over rather than approving on autopilot.
+ */
+function MatchNote({ found, phone }: { found: CustomerMatch[]; phone: string }) {
+  if (found.length === 0) {
+    return (
+      <p className="mt-2 rounded-[10px] bg-[#fdecea] px-3 py-2 text-[12.5px] leading-5 text-[#8c2f22]">
+        No customer has the number {phone}. Check with them before approving.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2 rounded-[10px] bg-[var(--og-surface-alt)] px-3 py-2 text-[12.5px] leading-5 text-[var(--og-text)]">
+      {found.length === 1 ? "That number belongs to " : "More than one match — pick one: "}
+      {found.map((m, i) => (
+        <span key={m.id}>
+          {i > 0 && ", "}
+          <strong>{m.name}</strong> ({m.id}
+          {m.active_packs > 0
+            ? `, ${m.active_packs} active pack${m.active_packs === 1 ? "" : "s"}`
+            : ", no active pack"}
+          )
+        </span>
+      ))}
+      {found.length === 1 ? " — filled in below." : ""}
+    </div>
   );
 }

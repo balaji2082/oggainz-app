@@ -101,6 +101,36 @@ export async function fetchCustomer(
   }
 }
 
+export interface CustomerMatch {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  locality: string | null;
+  active_packs: number;
+}
+
+/**
+ * Find customers by id, name, phone or email.
+ *
+ * Used to turn "someone with this phone number wants access" into "this is
+ * Ashok, C001, one active pack" — so approving is a glance and a tap rather
+ * than a trip to the Command Center to look an id up.
+ */
+export async function searchCustomers(query: string): Promise<CustomerMatch[]> {
+  if (query.trim().length < 2) return [];
+  try {
+    const data = await get<{ ok: boolean; results: CustomerMatch[] }>(
+      `/api/v1/customers/search?q=${encodeURIComponent(query)}`
+    );
+    return data.results ?? [];
+  } catch {
+    // Never let a lookup failure block the approve screen from rendering —
+    // Balaji can still type the id by hand.
+    return [];
+  }
+}
+
 export async function fetchPacks(customerId: string) {
   const data = await get<{ ok: boolean; packs: unknown[] }>(
     `/api/v1/customer/${encodeURIComponent(customerId)}/packs`
