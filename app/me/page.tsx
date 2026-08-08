@@ -13,6 +13,9 @@ import { currentSession } from "@/lib/current-user";
 export default async function Me() {
   const session = await currentSession();
   if (!session) redirect("/");
+  // Balaji signed in as the owner rather than as a subscriber: he has no meals
+  // of his own to show, so send him where he actually wanted to go.
+  if (!session.customerId) redirect("/admin");
 
   // The existing customer screen renders from the id it is given. Handing it
   // the id from the session keeps one copy of that UI while sign-in beds in;

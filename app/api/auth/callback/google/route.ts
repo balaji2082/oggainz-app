@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { audit, redeemInvite, sql } from "@/lib/accounts";
 import { exchangeCode, FLOW_COOKIE, openFlow } from "@/lib/google";
-import { cookieOptions, SESSION_COOKIE, sign } from "@/lib/session";
+import { cookieOptions, isOwnerEmail, SESSION_COOKIE, sign } from "@/lib/session";
 
 /**
  * Google sends the customer back here.
@@ -73,7 +73,22 @@ export async function GET(request: NextRequest) {
       WHERE google_sub = ${identity.sub} AND NOT disabled
     `;
     const account = rows[0] as { id: string; customer_id: string } | undefined;
-    if (!account) return fail(request, "unknown");
+    if (!account) {
+      // Balaji signing in on one of his own Google addresses. He is the owner,
+      // not a subscriber, so he must not need a customer record to get in —
+      // requiring one is what locked him out of his own admin page.
+      if (isOwnerEmail(identity.email)) {
+        const response = NextResponse.redirect(new URL("/admin", request.nextUrl.origin));
+        response.cookies.set(
+          SESSION_COOKIE,
+          await sign({ accountId: "owner", customerId: "", owner: true }),
+          cookieOptions()
+        );
+        response.cookies.delete(FLOW_COOKIE);
+        return response;
+      }
+      return fail(request, "unknown");
+    }
     accountId = account.id;
     customerId = account.customer_id;
     await audit(accountId, "signin", { via: "google" });

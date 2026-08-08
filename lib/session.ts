@@ -21,7 +21,24 @@ const DAYS = 30;
 
 export interface Session {
   accountId: string;
+  /** Empty for an owner who is not also a customer. */
   customerId: string;
+  /** Balaji. Set from OG_OWNER_EMAIL at sign-in, never from anything the browser sends. */
+  owner?: boolean;
+}
+
+/**
+ * Is this Google address one of Balaji's? Comma-separated, because he has
+ * several — a personal one, a business one, and the one he first signed in
+ * with. Being the owner must not depend on remembering which.
+ */
+export function isOwnerEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const list = (process.env.OG_OWNER_EMAIL ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return list.includes(email.trim().toLowerCase());
 }
 
 function key(): Uint8Array {
@@ -50,7 +67,11 @@ export async function verify(token: string | undefined): Promise<Session | null>
     const { payload } = await jwtVerify(token, key(), { algorithms: ["HS256"] });
     if (typeof payload.accountId !== "string") return null;
     if (typeof payload.customerId !== "string") return null;
-    return { accountId: payload.accountId, customerId: payload.customerId };
+    return {
+      accountId: payload.accountId,
+      customerId: payload.customerId,
+      owner: payload.owner === true,
+    };
   } catch {
     // Expired, tampered with, signed by something else — all the same answer.
     return null;

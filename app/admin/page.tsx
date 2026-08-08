@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { accountForCustomer, createInvite, INVITE_DAYS, sql } from "@/lib/accounts";
 import { fetchCustomer } from "@/lib/commandcenter";
 import { currentSession } from "@/lib/current-user";
+import { isOwnerEmail } from "@/lib/session";
 
 /**
  * Balaji's page for sending a customer their sign-in link.
@@ -22,13 +23,8 @@ import { currentSession } from "@/lib/current-user";
  * meals, not shown an error — there is no reason to confirm this page exists.
  */
 
-function isOwner(email: string | null | undefined): boolean {
-  const owner = process.env.OG_OWNER_EMAIL?.trim().toLowerCase();
-  if (!owner || !email) return false;
-  return email.trim().toLowerCase() === owner;
-}
-
-async function ownerEmail(accountId: string): Promise<string | null> {
+async function accountEmail(accountId: string): Promise<string | null> {
+  if (accountId === "owner") return null;
   const rows = await sql()`SELECT email FROM accounts WHERE id = ${accountId}`;
   return (rows[0] as { email: string | null } | undefined)?.email ?? null;
 }
@@ -40,8 +36,10 @@ export default async function Admin({
 }) {
   const session = await currentSession();
   if (!session) redirect("/");
-  const email = await ownerEmail(session.accountId);
-  if (!isOwner(email)) redirect("/me");
+  // Either signed in AS the owner, or signed in as a customer whose Google
+  // address happens to be one of Balaji's.
+  const allowed = session.owner === true || isOwnerEmail(await accountEmail(session.accountId));
+  if (!allowed) redirect("/me");
 
   const { customer: customerId } = await searchParams;
 
