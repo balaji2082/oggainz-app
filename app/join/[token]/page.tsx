@@ -1,10 +1,15 @@
-import { openInvite } from "@/lib/accounts";
+import { inviteState } from "@/lib/accounts";
 
 /**
- * The link Balaji sends on WhatsApp: oggainz.com/join/<token>
+ * The link Balaji sends on WhatsApp: app.oggainz.com/join/<token>
  *
- * Shows one button. The token is checked before the page renders, so a dead
- * link says so immediately rather than after a trip to Google and back.
+ * A link is single-use — that is what stops a forwarded message giving someone
+ * else access to a customer's account. But the person clicking it a second time
+ * is almost always the customer themselves, coming back later and reaching for
+ * the last thing they remember. Telling them "expired, ask for a new one" sends
+ * them to WhatsApp for something they do not need: they already have an account
+ * and can simply sign in. So a used link says exactly that, and offers the
+ * button that does it.
  */
 export default async function Join({
   params,
@@ -12,15 +17,31 @@ export default async function Join({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const invite = await openInvite(token);
+  const state = await inviteState(token);
 
-  if (!invite) {
+  if (state === "used") {
+    return (
+      <Frame title="You're already set up">
+        <p className="mb-6 text-[14px] leading-6 text-[var(--og-text-muted)]">
+          This link has already been used — which means your account is ready.
+          You don&rsquo;t need it again. Just sign in with the same Google
+          account you used before.
+        </p>
+        <SignIn href="/api/auth/google" label="Sign in" />
+        <Help />
+      </Frame>
+    );
+  }
+
+  if (state !== "ok") {
     return (
       <Frame title="This link has expired">
-        <p className="text-[14px] leading-6 text-[var(--og-text-muted)]">
-          Invite links last seven days and can only be used once. Message us on
-          WhatsApp and we&rsquo;ll send you a fresh one.
+        <p className="mb-6 text-[14px] leading-6 text-[var(--og-text-muted)]">
+          Invite links last seven days. If you already signed in before, use the
+          button below — you may not need a new one.
         </p>
+        <SignIn href="/api/auth/google" label="Try signing in" />
+        <Help />
       </Frame>
     );
   }
@@ -31,13 +52,10 @@ export default async function Join({
         Sign in once and this becomes your meal tracker — what&rsquo;s coming
         today, how many meals you have left, and your delivery details.
       </p>
-      <a
+      <SignIn
         href={`/api/auth/google?invite=${encodeURIComponent(token)}`}
-        className="flex w-full items-center justify-center gap-3 rounded-[var(--radius-og)] border border-[var(--og-border)] bg-white px-5 py-3.5 text-[15px] font-semibold text-[#15241d] transition hover:bg-[var(--og-surface-alt)]"
-      >
-        <GoogleMark />
-        Continue with Google
-      </a>
+        label="Continue with Google"
+      />
       <p className="mt-5 text-[12px] leading-5 text-[var(--og-text-muted)]">
         We only ever see your name and email address — never your password.
       </p>
@@ -55,6 +73,33 @@ function Frame({ title, children }: { title: string; children: React.ReactNode }
         {children}
       </div>
     </main>
+  );
+}
+
+function SignIn({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      className="flex w-full items-center justify-center gap-3 rounded-[var(--radius-og)] border border-[var(--og-border)] bg-white px-5 py-3.5 text-[15px] font-semibold text-[#15241d] transition hover:bg-[var(--og-surface-alt)]"
+    >
+      <GoogleMark />
+      {label}
+    </a>
+  );
+}
+
+function Help() {
+  return (
+    <p className="mt-5 text-[12px] leading-5 text-[var(--og-text-muted)]">
+      Signed in with a different Google account, or stuck?{" "}
+      <a
+        href="https://wa.me/919361798644"
+        className="font-semibold text-[var(--og-forest)] underline"
+      >
+        Message us
+      </a>{" "}
+      and we&rsquo;ll sort it out.
+    </p>
   );
 }
 

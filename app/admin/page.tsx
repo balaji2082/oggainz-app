@@ -1,6 +1,14 @@
 import { redirect } from "next/navigation";
 
-import { accountForCustomer, createInvite, INVITE_DAYS, sql } from "@/lib/accounts";
+import {
+  accountForCustomer,
+  createInvite,
+  INVITE_DAYS,
+  linkedAccounts,
+  sql,
+  unlinkCustomer,
+} from "@/lib/accounts";
+import { revalidatePath } from "next/cache";
 import { fetchCustomer } from "@/lib/commandcenter";
 import { currentSession } from "@/lib/current-user";
 import { isOwnerEmail } from "@/lib/session";
@@ -42,6 +50,27 @@ export default async function Admin({
   if (!allowed) redirect("/me");
 
   const { customer: customerId } = await searchParams;
+  const linked = await linkedAccounts();
+
+  /**
+   * Remove a customer's access.
+   *
+   * Needed because a link binds to whoever opens it, and that is not always the
+   * right person — a forwarded message, or Balaji testing with his own account,
+   * and the real customer can then never sign in. Without this the mistake is
+   * permanent. Re-checks ownership inside the action: a server action is a URL,
+   * and the page's guard does not protect it.
+   */
+  async function unlink(formData: FormData) {
+    "use server";
+    const s = await currentSession();
+    if (!s) return;
+    const ok = s.owner === true || isOwnerEmail(await accountEmail(s.accountId));
+    if (!ok) return;
+    const cid = String(formData.get("customer_id") ?? "").trim().toUpperCase();
+    if (cid) await unlinkCustomer(cid);
+    revalidatePath("/admin");
+  }
 
   let result: null | {
     ok: boolean;
@@ -149,6 +178,45 @@ export default async function Admin({
           )}
         </section>
       )}
+
+      <section className="mt-10">
+        <h2 className="mb-3 font-display text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--og-text-muted)]">
+          Who has access
+        </h2>
+        {linked.length === 0 ? (
+          <p className="rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)] p-4 text-[13.5px] text-[var(--og-text-muted)]">
+            Nobody has signed in yet.
+          </p>
+        ) : (
+          <ul className="overflow-hidden rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)]">
+            {linked.map((a) => (
+              <li
+                key={a.customer_id}
+                className="flex items-center gap-3 border-b border-[var(--og-border)] px-4 py-3 last:border-b-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-medium text-[var(--og-text)]">
+                    {a.customer_id}
+                  </p>
+                  <p className="truncate text-[12px] text-[var(--og-text-muted)]">
+                    {a.email ?? "no email"}
+                  </p>
+                </div>
+                <form action={unlink}>
+                  <input type="hidden" name="customer_id" value={a.customer_id} />
+                  <button className="shrink-0 rounded-full border border-[var(--og-border)] px-3 py-1.5 text-[11.5px] font-semibold text-[var(--og-text-muted)]">
+                    Remove access
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 px-1 text-[11.5px] leading-4 text-[var(--og-text-muted)]">
+          Removing access frees that customer to be invited again — use it if a
+          link reached the wrong person. Their meals and history are untouched.
+        </p>
+      </section>
 
       <p className="mt-10 text-[12px] leading-5 text-[var(--og-text-muted)]">
         The Invite button inside the Command Center cannot work — PythonAnywhere&rsquo;s

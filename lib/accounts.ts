@@ -91,6 +91,55 @@ export async function openInvite(token: string): Promise<Invite | null> {
   return (rows[0] as unknown as Invite) ?? null;
 }
 
+/**
+ * Why a link did not work.
+ *
+ * `openInvite` deliberately cannot tell these apart — it returns null for all of
+ * them, so a guesser learns nothing. But a real customer clicking their own link
+ * a second time deserves better than "expired, ask for a new one", so the join
+ * page asks this instead. Distinguishing them is safe: you need a valid 32-byte
+ * token to see any difference at all, and knowing a token is spent gets you no
+ * closer to getting in.
+ */
+export async function inviteState(
+  token: string
+): Promise<"ok" | "used" | "expired" | "unknown"> {
+  const rows = await sql()`
+    SELECT used_at, expires_at FROM invites WHERE token = ${token}
+  `;
+  const row = rows[0] as { used_at: string | null; expires_at: string } | undefined;
+  if (!row) return "unknown";
+  if (row.used_at) return "used";
+  if (new Date(row.expires_at) <= new Date()) return "expired";
+  return "ok";
+}
+
+/**
+ * Remove a customer's access, so they — or the right person — can be invited
+ * again. Disabled, never deleted: the row is referenced by the invite that
+ * created it, and the history of who had access when is worth keeping.
+ */
+export async function unlinkCustomer(customerId: string): Promise<void> {
+  await sql()`UPDATE accounts SET disabled = true WHERE customer_id = ${customerId}`;
+  await sql()`DELETE FROM invites WHERE customer_id = ${customerId} AND used_at IS NULL`;
+  await sql()`DELETE FROM customer_profiles WHERE customer_id = ${customerId}`;
+}
+
+/** Everyone who currently has access, newest first. */
+export async function linkedAccounts(): Promise<
+  { customer_id: string; email: string | null; last_seen_at: string | null }[]
+> {
+  const rows = await sql()`
+    SELECT customer_id, email, last_seen_at FROM accounts
+    WHERE NOT disabled ORDER BY created_at DESC
+  `;
+  return rows as unknown as {
+    customer_id: string;
+    email: string | null;
+    last_seen_at: string | null;
+  }[];
+}
+
 export async function accountForCustomer(
   customerId: string
 ): Promise<Account | null> {
