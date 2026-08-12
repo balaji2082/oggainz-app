@@ -124,6 +124,11 @@ function toPack(p: any): Pack {
     pause: p.paused
       ? { start: p.start_date ?? "", end: p.paused_until ?? null, reason: null }
       : null,
+    validity: {
+      enforced: Boolean(p.validity_enforced),
+      expiresOn: p.expires_on ?? null,
+      daysLeft: p.validity_days_left ?? null,
+    },
   };
 }
 

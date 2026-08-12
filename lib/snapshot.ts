@@ -161,6 +161,10 @@ export function getPacks(customerId: string): Pack[] {
             reason: str(p.reason),
           }
         : null,
+      // The snapshot script copies the SQLite file rather than reading through
+      // the API, and doesn't shape validity.py's columns — this dev-only path
+      // (laptop, no OG_API_BASE set) simply doesn't have an opinion on it.
+      validity: null,
     };
   });
 }

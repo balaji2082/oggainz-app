@@ -106,3 +106,52 @@ export async function getProfile(customerId: string): Promise<ProfileResult> {
 export async function forgetProfile(customerId: string): Promise<void> {
   await sql()`DELETE FROM customer_profiles WHERE customer_id = ${customerId}`;
 }
+
+// --- the one thing about themselves a customer may change -------------------
+
+/**
+ * The profile photo.
+ *
+ * [LAW] docs/05 §4.1 — the ONLY field in this table the app writes from the
+ * customer's side. Everything above is a photograph of the Command Center with
+ * no write path back; the avatar sits BESIDE that photograph in its own column,
+ * is never read by the Command Center, and is deliberately not part of `payload`
+ * so a refresh cannot erase it.
+ *
+ * Stored as a data URL: at ~30 customers this is a few dozen small images, and a
+ * blob store would be a new service and a new bill for that. The browser resizes
+ * to 512px and re-encodes as JPEG before sending; this is the backstop, not the
+ * first line of defence.
+ */
+const MAX_AVATAR_BYTES = 200_000;
+
+export async function setAvatar(customerId: string, dataUrl: string): Promise<void> {
+  if (!/^data:image\/(jpeg|png|webp);base64,/.test(dataUrl)) {
+    throw new Error("that doesn't look like an image");
+  }
+  if (dataUrl.length > MAX_AVATAR_BYTES) {
+    throw new Error("that image is too large — try a smaller one");
+  }
+  // A customer may have signed in before their profile row was ever written, so
+  // this has to be able to create the row as well as update it.
+  await sql()`
+    INSERT INTO customer_profiles (customer_id, avatar, avatar_set_at, synced_at)
+    VALUES (${customerId}, ${dataUrl}, now(), now())
+    ON CONFLICT (customer_id) DO UPDATE
+      SET avatar = EXCLUDED.avatar, avatar_set_at = now()
+  `;
+}
+
+export async function clearAvatar(customerId: string): Promise<void> {
+  await sql()`
+    UPDATE customer_profiles SET avatar = NULL, avatar_set_at = NULL
+     WHERE customer_id = ${customerId}
+  `;
+}
+
+export async function getAvatar(customerId: string): Promise<string | null> {
+  const rows = await sql()`
+    SELECT avatar FROM customer_profiles WHERE customer_id = ${customerId}
+  `;
+  return (rows[0]?.avatar as string | undefined) ?? null;
+}

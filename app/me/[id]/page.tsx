@@ -1,17 +1,20 @@
 import { notFound } from "next/navigation";
 
+import { Empty, SectionTitle } from "@/components/Bits";
 import PackCard from "@/components/PackCard";
 import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
 import TodayCard from "@/components/TodayCard";
 import {
   getCustomerData,
+  getDeadlines,
   isOperatingDay,
   mealsAfter,
   mealsOn,
   todayISO,
 } from "@/lib/data";
 import { relativeDay, shortDate } from "@/lib/format";
+import { unreadCount } from "@/lib/support";
 
 export default async function CustomerHome({
   params,
@@ -30,11 +33,16 @@ export default async function CustomerHome({
   const packById = new Map(packs.map((p) => [p.id, p]));
   const firstName = data.customer.name.split(" ")[0];
 
+  // The deadline for today's meal(s) only — that's the countdown that matters
+  // on this screen. docs/02 §7.5: computed by the server, never a client timer.
+  const { serverNow, days: deadlineByDate } = await getDeadlines(id, today, today);
+  const unread = await unreadCount("customer", id).catch(() => 0);
+
   return (
-    <Shell customerId={id} active="home">
+    <Shell customerId={id} active="home" supportUnread={unread > 0}>
       <StaleNotice asOf={data.asOf} />
 
-      <p className="font-display text-[22px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
+      <p className="font-display text-[23px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
         Hey {firstName}
       </p>
       <p className="mb-5 mt-1 text-[14px] text-[var(--og-text-muted)]">
@@ -53,6 +61,8 @@ export default async function CustomerHome({
               dateISO={today}
               todayISO={today}
               kitchenOpen
+              deadline={deadlineByDate[meal.date]}
+              serverNow={serverNow ?? undefined}
             />
           ))
         ) : (
@@ -68,10 +78,8 @@ export default async function CustomerHome({
 
       {upcoming.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-3 font-display text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--og-text-muted)]">
-            Coming up
-          </h2>
-          <ul className="overflow-hidden rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)]">
+          <SectionTitle>Coming up</SectionTitle>
+          <ul className="og-stagger overflow-hidden rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] shadow-[var(--og-e1)]">
             {upcoming.map((m, i) => (
               <li
                 key={`${m.id}-${m.date}-${m.slot}`}
@@ -89,7 +97,7 @@ export default async function CustomerHome({
                     {shortDate(m.date)} · {m.planName ?? "Meal"}
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-[var(--og-surface-alt)] px-2.5 py-1 text-[11px] font-semibold text-[var(--og-text-muted)]">
+                <span className="shrink-0 rounded-[var(--og-r-pill)] bg-[var(--og-surface-alt)] px-2.5 py-1 text-[11px] font-semibold text-[var(--og-text-muted)]">
                   {m.slot}
                 </span>
               </li>
@@ -105,17 +113,13 @@ export default async function CustomerHome({
       )}
 
       <section className="mt-8 pb-4">
-        <h2 className="mb-3 font-display text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--og-text-muted)]">
-          {packs.length === 1 ? "Your pack" : "Your packs"}
-        </h2>
+        <SectionTitle>{packs.length === 1 ? "Your pack" : "Your packs"}</SectionTitle>
         <div className="space-y-3">
           {packs.map((p) => (
-            <PackCard key={p.id} pack={p} />
+            <PackCard key={p.id} pack={p} customerId={id} />
           ))}
           {packs.length === 0 && (
-            <p className="rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)] p-5 text-[14px] text-[var(--og-text-muted)]">
-              No active pack right now.
-            </p>
+            <Empty title="No active pack right now" body="Message us when you're ready to start." />
           )}
         </div>
       </section>

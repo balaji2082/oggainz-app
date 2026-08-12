@@ -10,6 +10,7 @@ import {
   todayISO,
 } from "./snapshot";
 import type { Meal } from "./types";
+import { deadlines as fetchDeadlines, type Deadline } from "./writes";
 
 /**
  * One door to the customer's data, whichever side it comes from.
@@ -81,3 +82,29 @@ export function isOperatingDay(data: CustomerData, dateISO: string): boolean {
 }
 
 export { todayISO };
+
+/**
+ * Server-computed deadlines for a window of days (docs/02 §7.5 — never a
+ * client-side timer). Supplementary to the read above: if it can't be
+ * reached — offline, or simply not deployed there yet — the screen shows no
+ * countdown rather than failing to load. `getCustomerData` already carries its
+ * own honest stale/offline state for the data that actually matters.
+ *
+ * Deliberately swallows EVERY failure, not just CommandCenterDown: a 404
+ * because this endpoint hasn't reached that Command Center yet is a
+ * `WriteRefused`, not a `CommandCenterDown`, and a rollout ordering detail is
+ * not a reason to take the whole page down. Skip/pause themselves are never
+ * this forgiving — only the decorative countdown is.
+ */
+export async function getDeadlines(
+  customerId: string,
+  from: string,
+  to: string
+): Promise<{ serverNow: string | null; days: Record<string, Deadline> }> {
+  if (!liveAvailable()) return { serverNow: null, days: {} };
+  try {
+    return await fetchDeadlines(customerId, from, to);
+  } catch {
+    return { serverNow: null, days: {} };
+  }
+}

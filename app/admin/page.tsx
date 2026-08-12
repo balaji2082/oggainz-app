@@ -158,9 +158,14 @@ export default async function Admin({
 
   return (
     <main className="mx-auto w-full max-w-[560px] px-5 py-10">
-      <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
-        Invite a customer
-      </h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
+          Invite a customer
+        </h1>
+        <a href="/admin/ops" className="text-[13px] font-semibold text-[var(--og-text-muted)]">
+          Ops →
+        </a>
+      </div>
       <p className="mt-2 text-[14px] leading-6 text-[var(--og-text-muted)]">
         Type their customer id — it&rsquo;s the C0xx under their name in the
         Command Center — and send them the link on WhatsApp.

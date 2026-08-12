@@ -39,6 +39,47 @@
   --og-shadow-sm: 0 1px 2px rgba(0, 64, 48, 0.08);
   --og-shadow-md: 0 6px 20px rgba(0, 64, 48, 0.12);
   --og-shadow-lg: 0 16px 40px rgba(0, 64, 48, 0.16);
+
+  /* -------------------------------------------------------------------------
+     The premium layer.
+
+     Everything above is the brand as documented. Everything below is how it is
+     USED — depth, motion, rhythm — kept as tokens for the same reason the
+     colours are: so a screen built next month feels like one built today, and
+     so "make the cards softer" is one edit rather than forty.
+     ------------------------------------------------------------------------- */
+
+  /* Depth. A single light source, high and slightly forward, so cards on the
+     same plane cast the same shadow and the eye reads one surface. Two layers
+     each: a tight contact shadow that grounds the edge, and a wide soft one
+     that gives it height. One blurred shadow alone always looks like a sticker. */
+  --og-e1: 0 1px 2px rgba(0, 43, 32, 0.06), 0 1px 3px rgba(0, 43, 32, 0.05);
+  --og-e2: 0 2px 4px rgba(0, 43, 32, 0.05), 0 6px 16px rgba(0, 43, 32, 0.07);
+  --og-e3: 0 4px 8px rgba(0, 43, 32, 0.06), 0 14px 32px rgba(0, 43, 32, 0.10);
+  --og-e4: 0 8px 16px rgba(0, 43, 32, 0.08), 0 28px 60px rgba(0, 43, 32, 0.16);
+
+  /* The hero surface. Forest is the brand's most confident colour and it is
+     wasted as a text colour — on a dark card the lime finally has something to
+     be bright against. */
+  --og-hero: radial-gradient(120% 140% at 15% 0%, #0a5a44 0%, #004030 45%, #002b20 100%);
+  --og-hero-line: rgba(197, 232, 75, 0.16);
+  --og-on-hero: #f2f7ef;
+  --og-on-hero-dim: rgba(242, 247, 239, 0.62);
+
+  /* Radii. 14px reads as "a website"; a phone app in 2026 reads as soft. */
+  --og-r-sm: 12px;
+  --og-r-md: 18px;
+  --og-r-lg: 24px;
+  --og-r-xl: 30px;
+  --og-r-pill: 999px;
+
+  /* Motion. Two curves only, used everywhere.
+     `ease` for things that appear, `spring` for things a finger did. */
+  --og-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --og-spring: cubic-bezier(0.34, 1.42, 0.64, 1);
+  --og-fast: 140ms;
+  --og-mid: 260ms;
+  --og-slow: 420ms;
 }
 
 @theme inline {
@@ -64,9 +105,17 @@
   --font-body: var(--font-inter), system-ui, sans-serif;
 
   --radius-og: 14px;
+  --radius-og-sm: var(--og-r-sm);
+  --radius-og-md: var(--og-r-md);
+  --radius-og-lg: var(--og-r-lg);
+  --radius-og-xl: var(--og-r-xl);
   --shadow-og-sm: var(--og-shadow-sm);
   --shadow-og-md: var(--og-shadow-md);
   --shadow-og-lg: var(--og-shadow-lg);
+  --shadow-e1: var(--og-e1);
+  --shadow-e2: var(--og-e2);
+  --shadow-e3: var(--og-e3);
+  --shadow-e4: var(--og-e4);
 }
 
 * {
@@ -91,6 +140,101 @@ h1, h2, h3, .font-display {
   font-family: var(--font-poppins), system-ui, sans-serif;
 }
 
+/* ---------------------------------------------------------------------------
+   Motion.
+
+   All of it is CSS. Framer Motion would have been ~50KB of JavaScript for
+   animations a phone's compositor can already do on its own thread — and this
+   app is opened on Indian mobile data by people who want to know whether dinner
+   is coming. Transform and opacity only, so nothing here triggers layout.
+   --------------------------------------------------------------------------- */
+
+@keyframes og-rise {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes og-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes og-sheet-up {
+  from { transform: translate3d(0, 100%, 0); }
+  to   { transform: none; }
+}
+@keyframes og-pop {
+  0%   { transform: scale(0.86); opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes og-shimmer {
+  from { background-position: -180% 0; }
+  to   { background-position: 180% 0; }
+}
+@keyframes og-pulse-ring {
+  0%   { transform: scale(1); opacity: 0.55; }
+  70%  { transform: scale(1.7); opacity: 0; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+.og-rise { animation: og-rise var(--og-mid) var(--og-ease) both; }
+.og-fade { animation: og-fade var(--og-mid) var(--og-ease) both; }
+.og-pop  { animation: og-pop var(--og-slow) var(--og-spring) both; }
+
+/* A list that arrives in sequence rather than all at once. Capped at 8 because
+   past that the last item feels like it is waiting for permission. */
+.og-stagger > * { animation: og-rise var(--og-mid) var(--og-ease) both; }
+.og-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.og-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.og-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.og-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.og-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.og-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.og-stagger > *:nth-child(7) { animation-delay: 240ms; }
+.og-stagger > *:nth-child(n + 8) { animation-delay: 280ms; }
+
+/* What a finger expects. The scale is deliberately small — anything past 0.97
+   reads as the screen wobbling rather than the button responding. */
+.og-press {
+  transition: transform var(--og-fast) var(--og-ease),
+              box-shadow var(--og-fast) var(--og-ease),
+              background-color var(--og-fast) var(--og-ease),
+              opacity var(--og-fast) var(--og-ease);
+}
+.og-press:active:not(:disabled) { transform: scale(0.972); }
+
+/* Loading that looks like the shape of what is coming, not a spinner. */
+.og-skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--og-surface-alt) 30%,
+    rgba(255, 255, 255, 0.85) 50%,
+    var(--og-surface-alt) 70%
+  );
+  background-size: 220% 100%;
+  animation: og-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Focus that is visible for a keyboard and invisible for a thumb. */
+:focus-visible {
+  outline: 2px solid var(--og-green);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Numbers must not reflow as they tick. Without this the countdown jitters
+   every second as glyph widths change, which is the one place it is most
+   obvious and most annoying. */
+.og-tabular { font-variant-numeric: tabular-nums; }
+
+/* A scroll row that does not show a scrollbar but still scrolls. */
+.og-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+}
+.og-scroll-x::-webkit-scrollbar { display: none; }
+
 /* Respect a user's reduced-motion preference everywhere, once. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -98,4 +242,5 @@ h1, h2, h3, .font-display {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .og-press:active:not(:disabled) { transform: none; }
 }

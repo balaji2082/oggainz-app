@@ -15,7 +15,10 @@ export type PackStatus =
   | "Active"
   | "Ending Soon"
   | "Completed"
-  | "Paused";
+  | "Paused"
+  /** Validity (docs/01 §7.2) closed with meals still unclaimed. Off by default
+   *  — see validity.py on the Command Center; most packs never reach this. */
+  | "Expired";
 
 export interface Customer {
   id: string;
@@ -53,6 +56,13 @@ export interface Pack {
   /** True while a pause window covers today. */
   pausedToday: boolean;
   pause: { start: string; end: string | null; reason: string | null } | null;
+  /**
+   * Validity (docs/01 §7.2, docs/05 §1.1). `enforced` is false for every pack
+   * that exists today by default — validity.py on the Command Center is the
+   * only place that decides this, on. or off. per pack or globally, and this
+   * is simply what it decided. `expiresOn` is only meaningful when enforced.
+   */
+  validity: { enforced: boolean; expiresOn: string | null; daysLeft: number | null } | null;
 }
 
 export interface Meal {

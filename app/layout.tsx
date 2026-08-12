@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 
+import { ToastHost } from "@/components/ui/Toast";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -36,7 +38,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${poppins.variable} h-full`}>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <ToastHost>{children}</ToastHost>
+      </body>
     </html>
   );
 }
