@@ -14,6 +14,7 @@ import {
   todayISO,
 } from "@/lib/data";
 import { relativeDay, shortDate } from "@/lib/format";
+import { getAvatar } from "@/lib/profiles";
 import { unreadCount } from "@/lib/support";
 
 export default async function CustomerHome({
@@ -36,10 +37,13 @@ export default async function CustomerHome({
   // The deadline for today's meal(s) only — that's the countdown that matters
   // on this screen. docs/02 §7.5: computed by the server, never a client timer.
   const { serverNow, days: deadlineByDate } = await getDeadlines(id, today, today);
-  const unread = await unreadCount("customer", id).catch(() => 0);
+  const [unread, avatar] = await Promise.all([
+    unreadCount("customer", id).catch(() => 0),
+    getAvatar(id).catch(() => null),
+  ]);
 
   return (
-    <Shell customerId={id} active="home" supportUnread={unread > 0}>
+    <Shell customerId={id} active="home" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>
       <StaleNotice asOf={data.asOf} />
 
       <p className="font-display text-[23px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">

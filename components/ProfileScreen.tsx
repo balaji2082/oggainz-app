@@ -22,7 +22,7 @@ interface Props {
 }
 
 export default function ProfileScreen({ name, avatar, fields }: Props) {
-  const [request, setRequest] = useState<{ label: string; value: string } | null>(null);
+  const [requesting, setRequesting] = useState(false);
 
   return (
     <>
@@ -38,40 +38,44 @@ export default function ProfileScreen({ name, avatar, fields }: Props) {
             key={f.key}
             className={
               i > 0
-                ? "flex items-center gap-3 border-t border-[var(--og-border)] px-4 py-3.5"
-                : "flex items-center gap-3 px-4 py-3.5"
+                ? "border-t border-[var(--og-border)] px-4 py-3.5"
+                : "px-4 py-3.5"
             }
           >
-            <div className="min-w-0 flex-1">
-              <p className="text-[11.5px] text-[var(--og-text-muted)]">{f.label}</p>
-              <p className="mt-0.5 text-[14.5px] text-[var(--og-text)]">{f.value}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setRequest({ label: f.label, value: f.value })}
-              className="og-press shrink-0 rounded-[var(--og-r-pill)] bg-[var(--og-surface-alt)] px-3 py-1.5 text-[11.5px] font-semibold text-[var(--og-text-muted)]"
-            >
-              Request a change
-            </button>
+            <p className="text-[11.5px] text-[var(--og-text-muted)]">{f.label}</p>
+            <p className="mt-0.5 text-[14.5px] text-[var(--og-text)]">{f.value}</p>
           </div>
         ))}
-        <p className="border-t border-[var(--og-border)] px-4 py-3 text-[12px] leading-5 text-[var(--og-text-muted)]">
-          We keep these ourselves so deliveries and invoices always match.
-        </p>
+
+        {/* One button for the whole card, not one per row.
+            Three identical "Request a change" buttons stacked down the side
+            read as three different things you might do, when they all open the
+            same conversation — and they crowded out the values, which are what
+            the customer came to check. */}
+        <div className="border-t border-[var(--og-border)] px-4 py-3.5">
+          <p className="mb-3 text-[12px] leading-5 text-[var(--og-text-muted)]">
+            We keep these ourselves so deliveries and invoices always match.
+          </p>
+          <button
+            type="button"
+            onClick={() => setRequesting(true)}
+            className="og-press w-full rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-4 py-3 text-[13px] font-semibold text-[var(--og-forest)]"
+          >
+            Request a change
+          </button>
+        </div>
       </Card>
 
       <SupportSheet
-        open={request !== null}
-        onClose={() => setRequest(null)}
-        prefill={
-          request
-            ? {
-                category: "details",
-                subject: `Change ${request.label.toLowerCase()}`,
-                context: { field: request.label, current: request.value },
-              }
-            : undefined
-        }
+        open={requesting}
+        onClose={() => setRequesting(false)}
+        prefill={{
+          category: "details",
+          subject: "Change my details",
+          // The current values ride along, so Balaji can see what they are
+          // asking to change FROM without going and looking it up.
+          context: Object.fromEntries(fields.map((f) => [f.label, f.value])),
+        }}
       />
     </>
   );

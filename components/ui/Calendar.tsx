@@ -49,6 +49,83 @@ interface Props {
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
+/**
+ * What happened on a day, as a small piece of iconography.
+ *
+ * Each one is a real shape rather than a coloured dot, because the states mean
+ * genuinely different things and a row of identical dots in four colours forces
+ * the customer back to the key every time. A filled bowl reads as "food came",
+ * an outlined one as "food is coming", and neither needs explaining twice.
+ */
+function Marker({ state }: { state: DayState }) {
+  if (state === "delivered") {
+    // A full bowl with a tick — the meal arrived.
+    return (
+      <span aria-hidden="true" className="mt-[3px] text-[var(--og-green)]">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+          <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" fill="currentColor" />
+          <path d="M8.5 13.6l2.2 2.2 4.6-4.6" stroke="var(--og-cream)" strokeWidth="2.2"
+                strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    );
+  }
+  if (state === "scheduled") {
+    // The same bowl, empty — the meal is on its way.
+    return (
+      <span aria-hidden="true" className="mt-[3px] text-[var(--og-forest)]">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" />
+        </svg>
+      </span>
+    );
+  }
+  if (state === "skipped") {
+    // Deliberately taken off — a bowl crossed through.
+    return (
+      <span aria-hidden="true" className="mt-[3px] text-[var(--og-orange)]">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" opacity="0.45" />
+          <path d="M4.5 19.5L19.5 4.5" />
+        </svg>
+      </span>
+    );
+  }
+  if (state === "paused") {
+    return (
+      <span aria-hidden="true" className="mt-[3px] text-[var(--og-text-muted)]">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6.5" y="5" width="3.6" height="14" rx="1.6" />
+          <rect x="13.9" y="5" width="3.6" height="14" rx="1.6" />
+        </svg>
+      </span>
+    );
+  }
+  if (state === "requested") {
+    // Waiting on Balaji — a clock, not a verdict.
+    return (
+      <span aria-hidden="true" className="mt-[3px] text-[var(--og-orange)]">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5.2l3.2 1.9" />
+        </svg>
+      </span>
+    );
+  }
+  if (state === "closed") {
+    return (
+      <span
+        aria-hidden="true"
+        className="mt-[5px] block h-[2.5px] w-3 rounded-full bg-[var(--og-border)]"
+      />
+    );
+  }
+  return null;
+}
+
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
@@ -188,11 +265,20 @@ export default function Calendar({
               className={[
                 "og-press relative flex aspect-square min-h-[42px] flex-col items-center justify-center",
                 "text-[14px] font-medium",
+                // The selected range wears the same forest→green gradient as the
+                // Today hero, so the two screens read as one product rather than
+                // two. Only the ends are rounded, which is what makes a run of
+                // days look like one continuous stretch instead of seven chips.
                 selected
                   ? isEdge
-                    ? "rounded-[var(--og-r-sm)] bg-[var(--og-forest)] text-white shadow-[var(--og-e2)]"
-                    : "bg-[color-mix(in_srgb,var(--og-green)_20%,transparent)] text-[var(--og-forest)]"
+                    ? "text-white shadow-[var(--og-e2)]"
+                    : "bg-[color-mix(in_srgb,var(--og-green)_18%,transparent)] text-[var(--og-forest)]"
                   : "rounded-[var(--og-r-sm)]",
+                selected && isEdge && date === start && date === end ? "rounded-[var(--og-r-sm)]" : "",
+                selected && isEdge && date === start && date !== end
+                  ? "rounded-l-[var(--og-r-sm)]" : "",
+                selected && isEdge && date === end && date !== start
+                  ? "rounded-r-[var(--og-r-sm)]" : "",
                 !selected && day.state === "closed"
                   ? "text-[color-mix(in_srgb,var(--og-text-muted)_55%,transparent)]"
                   : "",
@@ -204,86 +290,34 @@ export default function Calendar({
                   ? "ring-1 ring-inset ring-[var(--og-forest)] rounded-[var(--og-r-sm)]"
                   : "",
               ].join(" ")}
+              style={
+                selected && isEdge ? { background: "var(--og-gradient-brand)" } : undefined
+              }
             >
               <span className={isToday ? "font-bold" : undefined}>{num}</span>
-
-              {/* The state marker. A shape as well as a colour, always. */}
-              {!selected && day.state === "closed" && (
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 h-[2px] w-2.5 rounded-full bg-[var(--og-border)]"
-                />
-              )}
-              {!selected && day.state === "delivered" && (
-                <span aria-hidden="true" className="mt-0.5 text-[var(--og-green)]">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                       strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 12.5l5.5 5.5L20 7" />
-                  </svg>
-                </span>
-              )}
-              {!selected && day.state === "scheduled" && (
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 h-1.5 w-1.5 rounded-full bg-[var(--og-forest)]"
-                />
-              )}
-              {!selected && day.state === "skipped" && (
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 h-[2px] w-2.5 rounded-full bg-[var(--og-orange)]"
-                />
-              )}
-              {!selected && day.state === "paused" && (
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 flex gap-[2px] text-[var(--og-text-muted)]"
-                >
-                  <i className="block h-2 w-[2px] rounded-full bg-current" />
-                  <i className="block h-2 w-[2px] rounded-full bg-current" />
-                </span>
-              )}
-              {!selected && day.state === "requested" && (
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 h-1.5 w-1.5 rounded-full border border-[var(--og-orange)]"
-                />
-              )}
+              {!selected && <Marker state={day.state} />}
             </button>
           );
         })}
       </div>
 
-      <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11.5px] text-[var(--og-text-muted)]">
-        <Key swatch={<i className="h-1.5 w-1.5 rounded-full bg-[var(--og-forest)]" />} label="Coming" />
-        <Key
-          swatch={
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--og-green)"
-                 strokeWidth="4" strokeLinecap="round"><path d="M4 12.5l5.5 5.5L20 7" /></svg>
-          }
-          label="Delivered"
-        />
-        <Key swatch={<i className="h-[2px] w-2.5 rounded-full bg-[var(--og-orange)]" />} label="Skipped" />
-        <Key
-          swatch={
-            <span className="flex gap-[2px]">
-              <i className="block h-2 w-[2px] rounded-full bg-[var(--og-text-muted)]" />
-              <i className="block h-2 w-[2px] rounded-full bg-[var(--og-text-muted)]" />
-            </span>
-          }
-          label="Paused"
-        />
-        <Key swatch={<i className="h-[2px] w-2.5 rounded-full bg-[var(--og-border)]" />} label="Kitchen closed" />
+      <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-[var(--og-border)] pt-3.5 text-[11.5px] text-[var(--og-text-muted)]">
+        <Key state="scheduled" label="Coming" />
+        <Key state="delivered" label="Delivered" />
+        <Key state="skipped" label="Skipped" />
+        <Key state="paused" label="Paused" />
+        <Key state="closed" label="Kitchen closed" />
       </ul>
     </div>
   );
 }
 
-function Key({ swatch, label }: { swatch: React.ReactNode; label: string }) {
+/** The key reuses the exact marker from the grid, so they can never drift. */
+function Key({ state, label }: { state: DayState; label: string }) {
   return (
     <li className="flex items-center gap-1.5">
-      <span className="flex h-3 w-3 items-center justify-center" aria-hidden="true">
-        {swatch}
+      <span className="flex h-3.5 w-3.5 items-center justify-center [&>span]:mt-0" aria-hidden="true">
+        <Marker state={state} />
       </span>
       {label}
     </li>

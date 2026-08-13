@@ -6,6 +6,7 @@ import StaleNotice from "@/components/StaleNotice";
 import { addDays } from "@/lib/format";
 import { getCustomerData, getDeadlines, todayISO } from "@/lib/data";
 import { myFeedback } from "@/lib/feedback";
+import { getAvatar } from "@/lib/profiles";
 import { unreadCount } from "@/lib/support";
 import { myRequests } from "@/lib/writes";
 
@@ -27,15 +28,16 @@ export default async function Calendar({
   const from = addDays(today, -35);
   const to = addDays(today, 60);
 
-  const [{ serverNow, days: deadlines }, feedback, requests, unread] = await Promise.all([
+  const [{ serverNow, days: deadlines }, feedback, requests, unread, avatar] = await Promise.all([
     getDeadlines(id, from, to),
     myFeedback(id, from, to).catch(() => ({})),
     myRequests(id).catch(() => []),
     unreadCount("customer", id).catch(() => 0),
+    getAvatar(id).catch(() => null),
   ]);
 
   return (
-    <Shell customerId={id} active="calendar" supportUnread={unread > 0}>
+    <Shell customerId={id} active="calendar" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>
       <StaleNotice asOf={data.asOf} />
       <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
         Calendar

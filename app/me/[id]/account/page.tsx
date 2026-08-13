@@ -32,7 +32,13 @@ export default async function Account({
   const settings = data.settings;
 
   return (
-    <Shell customerId={id} active="account" supportUnread={unread > 0}>
+    <Shell
+      customerId={id}
+      active="account"
+      supportUnread={unread > 0}
+      avatar={avatar}
+      name={customer.name}
+    >
       <StaleNotice asOf={data.asOf} />
       <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
         Profile
@@ -44,11 +50,13 @@ export default async function Account({
       <ProfileScreen
         name={customer.name}
         avatar={avatar}
+        // The customer id is deliberately not here. It is our filing reference,
+        // not something they need, and showing it invites "quote your ID" as a
+        // step in conversations that should just start with their name.
         fields={[
           { key: "name", label: "Name", value: customer.name },
           { key: "phone", label: "Phone", value: customer.phone ?? "—" },
           { key: "area", label: "Area", value: customer.locality ?? "—" },
-          { key: "id", label: "Customer ID", value: customer.id },
         ]}
       />
 

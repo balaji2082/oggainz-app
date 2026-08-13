@@ -1,20 +1,32 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { Avatar } from "./Bits";
+
 interface ShellProps {
   customerId: string;
   active: "home" | "calendar" | "pack" | "support" | "account";
   children: React.ReactNode;
   /** Unread support replies — a red dot on the tab, nothing louder. */
   supportUnread?: boolean;
+  /** The customer's own photo, for the header. */
+  avatar?: string | null;
+  name?: string;
 }
 
+/**
+ * Four tabs, not five.
+ *
+ * Profile moved out of the bar and up to the avatar in the top-right: it is the
+ * tab people open least, the header had empty space doing nothing, and the
+ * top-right corner is where everyone already looks for their own account. The
+ * four that remain are the four things a customer actually does.
+ */
 const NAV = [
   { key: "home", label: "Today", href: "" },
   { key: "calendar", label: "Calendar", href: "/calendar" },
   { key: "pack", label: "My pack", href: "/pack" },
   { key: "support", label: "Support", href: "/support" },
-  { key: "account", label: "Profile", href: "/account" },
 ] as const;
 
 function NavIcon({ name, on }: { name: string; on: boolean }) {
@@ -65,21 +77,44 @@ function NavIcon({ name, on }: { name: string; on: boolean }) {
   );
 }
 
-export default function Shell({ customerId, active, children, supportUnread }: ShellProps) {
+export default function Shell({
+  customerId,
+  active,
+  children,
+  supportUnread,
+  avatar,
+  name,
+}: ShellProps) {
   const base = `/me/${customerId}`;
+  const onAccount = active === "account";
   return (
     <div className="mx-auto w-full max-w-[520px]">
-      <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-[var(--og-border)] bg-[var(--og-bg)]/92 px-5 py-3.5 backdrop-blur-md">
-        <Image
-          src="/brand/icon_only_forest.svg"
-          alt=""
-          width={28}
-          height={28}
-          priority
-        />
-        <span className="font-display text-[15px] font-semibold tracking-tight text-[var(--og-forest)]">
-          OG Gainz
-        </span>
+      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-[var(--og-border)] bg-[var(--og-bg)]/92 px-5 py-3 backdrop-blur-md">
+        {/* The stacked lockup, at a size that reads as a brand rather than a
+            favicon. It carries the wordmark itself, so the separate "OG Gainz"
+            text beside it was saying the same thing twice. */}
+        <Link href={base} aria-label="OG Gainz — home" className="og-press shrink-0">
+          <Image
+            src="/brand/stacked_forest.svg"
+            alt="OG Gainz"
+            width={104}
+            height={40}
+            priority
+            className="h-[40px] w-auto"
+          />
+        </Link>
+
+        <Link
+          href={`${base}/account`}
+          aria-label="Your profile"
+          aria-current={onAccount ? "page" : undefined}
+          className={[
+            "og-press relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+            onAccount ? "ring-2 ring-[var(--og-forest)] ring-offset-2 ring-offset-[var(--og-bg)]" : "",
+          ].join(" ")}
+        >
+          <Avatar src={avatar} name={name ?? "You"} size={38} />
+        </Link>
       </header>
 
       <main className="px-5 pt-5">{children}</main>

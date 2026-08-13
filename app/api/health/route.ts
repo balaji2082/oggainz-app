@@ -80,6 +80,49 @@ export async function GET() {
     }
   }
 
+  // --- the WRITE half of the Command Center ---
+  //
+  // Reads and writes were deployed at different times and live in different
+  // files, so "the Command Center is up" does not mean skip and pause work.
+  // Without this check that difference is invisible: the read check goes green,
+  // the app looks healthy, and every skip fails.
+  //
+  // Probed with a deliberately empty body. A deployed endpoint validates it and
+  // answers 400; an undeployed one has no route and answers 404. Either way
+  // NOTHING is written, so this is safe to call as often as you like.
+  if (base && token) {
+    try {
+      const response = await fetch(
+        `${base.replace(/\/$/, "")}/api/v1/customer/__healthcheck__/skip`,
+        {
+          method: "POST",
+          headers: {
+            "X-OG-Service-Token": token,
+            "Content-Type": "application/json",
+          },
+          body: "{}",
+          signal: AbortSignal.timeout(20000),
+          cache: "no-store",
+        }
+      );
+      if (response.status === 400) {
+        checks.writeApi = { ok: true, deployed: true };
+      } else if (response.status === 404) {
+        checks.writeApi = {
+          ok: false,
+          deployed: false,
+          hint: "skip/pause will fail — PythonAnywhere needs: cd oggainz-os && git pull, then Web → Reload",
+        };
+      } else {
+        checks.writeApi = { ok: false, status: response.status };
+      }
+    } catch (error) {
+      checks.writeApi = { ok: false, error: (error as Error).message.slice(0, 120) };
+    }
+  } else {
+    checks.writeApi = { ok: false, configured: false };
+  }
+
   checks.signIn = {
     googleConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     sessionSecretSet: Boolean(process.env.AUTH_SECRET),
@@ -88,7 +131,8 @@ export async function GET() {
 
   const ok =
     (checks.database as { ok: boolean }).ok &&
-    (checks.commandCenter as { ok: boolean }).ok;
+    (checks.commandCenter as { ok: boolean }).ok &&
+    (checks.writeApi as { ok: boolean }).ok;
 
   return NextResponse.json({ ok, at: new Date().toISOString(), checks }, {
     status: ok ? 200 : 503,

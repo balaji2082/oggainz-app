@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 
 import { Empty, Pill, ProgressRing, SectionTitle } from "@/components/Bits";
+import DeliveryHistory from "@/components/DeliveryHistory";
 import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
 import { componentLabel, longDate, rupees, shortDate } from "@/lib/format";
-import { getCustomerData } from "@/lib/data";
+import { getCustomerData, todayISO } from "@/lib/data";
+import { getAvatar } from "@/lib/profiles";
 import { unreadCount } from "@/lib/support";
 import type { Pack } from "@/lib/types";
 
@@ -24,7 +26,10 @@ export default async function MyPack({
   const data = await getCustomerData(id);
   if (!data.customer) notFound();
 
-  const unread = await unreadCount("customer", id).catch(() => 0);
+  const [unread, avatar] = await Promise.all([
+    unreadCount("customer", id).catch(() => 0),
+    getAvatar(id).catch(() => null),
+  ]);
   const packs = data.packs;
   const live = packs.filter(
     (p) => p.status === "Active" || p.status === "Ending Soon" || p.status === "Paused" || p.status === "Expired"
@@ -33,7 +38,7 @@ export default async function MyPack({
   const invoices = data.invoices;
 
   return (
-    <Shell customerId={id} active="pack" supportUnread={unread > 0}>
+    <Shell customerId={id} active="pack" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>
       <StaleNotice asOf={data.asOf} />
       <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
         {live.length === 1 ? "Your pack" : "Your packs"}
@@ -51,6 +56,8 @@ export default async function MyPack({
           <PackDetail key={p.id} pack={p} />
         ))}
       </div>
+
+      <DeliveryHistory packs={packs} meals={data.meals} todayISO={todayISO()} />
 
       {invoices.length > 0 && (
         <section className="mt-8">

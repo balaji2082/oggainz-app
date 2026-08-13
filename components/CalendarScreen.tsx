@@ -13,6 +13,7 @@ import Calendar, { type CalendarDay, type DayState } from "./ui/Calendar";
 import Sheet from "./ui/Sheet";
 import { useToast } from "./ui/Toast";
 import DaySheet from "./DaySheet";
+import PackSwitcher from "./PackSwitcher";
 
 interface Props {
   todayISO: string;
@@ -31,6 +32,8 @@ function isOperating(dateISO: string, operatingWeekdays: number[]): boolean {
   return operatingWeekdays.includes(weekday);
 }
 
+const LIVE = ["Active", "Ending Soon", "Paused"];
+
 export default function CalendarScreen({
   todayISO,
   meals,
@@ -48,11 +51,31 @@ export default function CalendarScreen({
   const [range, setRange] = useState<[string | null, string | null]>([null, null]);
   const [pending, startTransition] = useTransition();
 
-  const primaryPack = useMemo(
-    () =>
-      packs.find((p) => p.status === "Active" || p.status === "Ending Soon" || p.status === "Paused") ??
-      packs[0],
-    [packs]
+  const livePacks = useMemo(() => packs.filter((p) => LIVE.includes(p.status)), [packs]);
+
+  /**
+   * Which pack the calendar is showing.
+   *
+   * This used to be a single `primaryPack` picked with `find(...) ?? packs[0]`,
+   * and it was wrong in a way that only shows up for a customer holding more
+   * than one pack: Ashok's protein shake and his meal pack are two separate
+   * subscriptions, and every day, every skip and every pause was silently
+   * attributed to whichever sorted first. A customer could not skip the meal
+   * they meant to skip.
+   *
+   * There is no correct default when someone holds two packs, so the interface
+   * asks instead of guessing (the API refuses to guess for the same reason).
+   */
+  const [packId, setPackId] = useState<string>(() => livePacks[0]?.id ?? packs[0]?.id ?? "");
+  const pack = useMemo(
+    () => packs.find((p) => p.id === packId) ?? livePacks[0] ?? packs[0],
+    [packs, packId, livePacks]
+  );
+
+  /** Only this pack's meals. The API tags every row with its subscription. */
+  const packMeals = useMemo(
+    () => (pack ? meals.filter((m) => m.packId === pack.id) : []),
+    [meals, pack]
   );
 
   const pendingByDate = useMemo(() => {
@@ -73,48 +96,44 @@ export default function CalendarScreen({
 
   const days = useMemo(() => {
     const out: Record<string, CalendarDay> = {};
-    const pause = primaryPack?.pause;
-
-    // Every day the calendar can show starts from the plain fact of whether the
-    // kitchen runs that weekday — set first so a real event below can override
-    // it, but a day with no meal row and no pause still reads as closed rather
-    // than blank.
-    let probe = addDays(todayISO, -35);
+    const first = addDays(todayISO, -35);
     const last = addDays(todayISO, 60);
+
+    // Start from the plain fact of whether the kitchen runs that weekday, so a
+    // day with no meal and no freeze reads as closed rather than blank.
+    let probe = first;
     while (probe <= last) {
       if (!isOperating(probe, operatingWeekdays)) out[probe] = { state: "closed" };
       probe = addDays(probe, 1);
     }
 
-    for (const meal of meals) {
+    // Every freeze on THIS pack — including future ones, which is what a skip
+    // three weeks out is. Painted before meals so a real delivered row wins.
+    for (const w of pack?.pauses ?? []) {
+      let d = w.start;
+      const end = w.end ?? last;
+      let guard = 0;
+      while (d <= end && d <= last && guard++ < 400) {
+        if (d >= first && isOperating(d, operatingWeekdays)) {
+          out[d] = { state: w.kind === "skip" ? "skipped" : "paused" };
+        }
+        d = addDays(d, 1);
+      }
+    }
+
+    for (const meal of packMeals) {
       const late = deadlines[meal.date]?.late ?? meal.date < todayISO;
       let state: DayState = "scheduled";
       if (meal.status === "Delivered") state = "delivered";
       else if (meal.status === "Skipped") state = "skipped";
+      else if (meal.status === "Paused") state = "paused";
       else if (pendingByDate.has(meal.date)) state = "requested";
-      else if (
-        pause &&
-        meal.date >= pause.start &&
-        (!pause.end || meal.date <= pause.end)
-      )
-        state = "paused";
       out[meal.date] = { state, changeable: !late, slot: meal.slot };
     }
-    // Days inside a pause window with no meal row at all still need to render
-    // as paused, not blank — that IS the point of a pause (no order generates).
-    if (pause) {
-      let d = pause.start;
-      const end = pause.end ?? todayISO;
-      let guard = 0;
-      while (d <= end && guard++ < 400) {
-        if (isOperating(d, operatingWeekdays)) out[d] = { state: "paused" };
-        d = addDays(d, 1);
-      }
-    }
     return out;
-  }, [meals, primaryPack, deadlines, todayISO, pendingByDate, operatingWeekdays]);
+  }, [packMeals, pack, deadlines, todayISO, pendingByDate, operatingWeekdays]);
 
-  const selectedMeals = openDate ? meals.filter((m) => m.date === openDate) : [];
+  const selectedMeals = openDate ? packMeals.filter((m) => m.date === openDate) : [];
   const selectedDeadline = openDate ? deadlines[openDate] : undefined;
   const selectedPending = openDate
     ? pendingRequests.find(
@@ -126,26 +145,22 @@ export default function CalendarScreen({
 
   // --- pause range summary ---------------------------------------------------
   const [start, end] = range;
-  const rangeDates = useMemo(() => {
+  const operatingInRange = useMemo(() => {
     if (!start || !end) return [] as string[];
     const out: string[] = [];
     let d = start;
     let guard = 0;
     while (d <= end && guard++ < 400) {
-      out.push(d);
+      if (isOperating(d, operatingWeekdays)) out.push(d);
       d = addDays(d, 1);
     }
     return out;
-  }, [start, end]);
-  const operatingInRange = useMemo(
-    () => rangeDates.filter((d) => isOperating(d, operatingWeekdays)),
-    [rangeDates, operatingWeekdays]
-  );
+  }, [start, end, operatingWeekdays]);
 
   function confirmPause() {
-    if (!start || !end || !primaryPack) return;
+    if (!start || !end || !pack) return;
     startTransition(async () => {
-      const result = await pauseMeals(start, end, primaryPack.id);
+      const result = await pauseMeals(start, end, pack.id);
       toast(result.message, result.ok ? "good" : "bad");
       if (result.ok) {
         setPausing(false);
@@ -157,11 +172,16 @@ export default function CalendarScreen({
 
   return (
     <div>
+      {/* Only when there is genuinely a choice to make. */}
+      {packs.length > 1 && (
+        <PackSwitcher packs={packs} activeId={pack?.id ?? ""} onPick={setPackId} />
+      )}
+
       <div className="rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] p-5 shadow-[var(--og-e1)]">
         <Calendar days={days} todayISO={todayISO} mode="browse" onPickDay={setOpenDate} />
       </div>
 
-      {primaryPack && (
+      {pack && LIVE.includes(pack.status) && (
         <div className="mt-4">
           <Button
             variant="secondary"
@@ -177,10 +197,14 @@ export default function CalendarScreen({
           >
             Pause a stretch
           </Button>
+          {packs.length > 1 && (
+            <p className="mt-2 text-center text-[12px] text-[var(--og-text-muted)]">
+              This pauses {pack.planName} only.
+            </p>
+          )}
         </div>
       )}
 
-      {/* One day, tapped from the calendar. */}
       <DaySheet
         open={openDate !== null}
         onClose={() => setOpenDate(null)}
@@ -188,14 +212,13 @@ export default function CalendarScreen({
         todayISO={todayISO}
         state={openDate ? days[openDate]?.state : undefined}
         meals={selectedMeals}
-        pack={primaryPack}
+        pack={pack}
         deadline={selectedDeadline}
         serverNow={serverNow ?? undefined}
         feedback={openDate ? feedback[`${openDate}|${selectedMeals[0]?.slot ?? "Lunch"}`] : undefined}
         pendingRequest={selectedPending}
       />
 
-      {/* Pausing a range. */}
       <Sheet
         open={pausing}
         onClose={() => {
@@ -203,7 +226,10 @@ export default function CalendarScreen({
           setRange([null, null]);
         }}
         title="Pause a stretch"
-        subtitle="Tap your first and last day away"
+        subtitle={
+          packs.length > 1 ? `${pack?.planName} · tap your first and last day away`
+                           : "Tap your first and last day away"
+        }
         footer={
           start && end ? (
             <Button full busy={pending} onClick={confirmPause}>

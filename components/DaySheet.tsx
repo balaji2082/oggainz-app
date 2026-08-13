@@ -86,8 +86,9 @@ export default function DaySheet({
           </div>
         )}
 
-        {/* Paused, no specific meal action here — offer to resume from today. */}
-        {!pendingRequest && state === "paused" && !meal && (
+        {/* Inside a freeze. The API now reports these days explicitly, so this
+            no longer depends on there being no meal row — a paused day has one. */}
+        {!pendingRequest && (state === "paused" || meal?.status === "Paused") && (
           <div>
             <div className="mb-4 flex items-center gap-2.5 rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-3.5 py-3">
               <span className="flex gap-[3px] text-[var(--og-text-muted)]" aria-hidden="true">
@@ -113,8 +114,9 @@ export default function DaySheet({
           </p>
         )}
 
-        {/* A real meal on this date. */}
-        {!pendingRequest && meal && (
+        {/* A real meal on this date. A paused day is handled above — it is a
+            stretch the customer chose, not a meal with actions on it. */}
+        {!pendingRequest && meal && meal.status !== "Paused" && (
           <div>
             <div className="mb-4 flex items-center justify-between">
               <div>
@@ -186,7 +188,11 @@ export default function DaySheet({
                 serverNow={serverNow}
                 late={deadline?.late ?? date < todayISO}
                 skipped={meal.status === "Skipped"}
-                subscriptionId={pack?.id ?? meal.packId ?? undefined}
+                // The meal's OWN pack, never the one the screen happens to be
+                // showing. These are the same thing today because the calendar
+                // filters by pack — but binding a write to the container rather
+                // than to the row is exactly how the wrong pack got skipped.
+                subscriptionId={meal.packId ?? pack?.id ?? undefined}
                 onMessageUs={() => setMessaging(true)}
               />
             )}

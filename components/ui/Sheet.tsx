@@ -62,15 +62,20 @@ export default function Sheet({ open, onClose, title, subtitle, children, footer
       }}
       aria-label={title}
       className={[
-        "m-0 max-h-[92dvh] w-full max-w-[520px] bg-transparent p-0",
+        "og-sheet m-0 max-h-[92dvh] w-full max-w-[520px] bg-transparent p-0",
         "mt-auto mb-0 ml-auto mr-auto",
-        "backdrop:bg-[rgba(0,43,32,0.42)] backdrop:backdrop-blur-[2px]",
       ].join(" ")}
     >
       <div
-        style={{ animation: "og-sheet-up var(--og-mid) var(--og-ease) both" }}
+        // Keyed on `open` so the panel is a NEW element every time the sheet
+        // opens, which is what makes the slide-up animation restart reliably.
+        // Without it the animation plays once, on first mount, while the dialog
+        // is still display:none — and every real open after that just snapped
+        // into place. That was the "glitch": not a broken animation, a missing
+        // one, next to a backdrop that appeared instantly.
+        key={open ? "open" : "shut"}
         className={[
-          "flex max-h-[92dvh] flex-col overflow-hidden",
+          "og-sheet-panel flex max-h-[92dvh] flex-col overflow-hidden",
           "rounded-t-[var(--og-r-xl)] bg-[var(--og-bg)]",
           "shadow-[var(--og-e4)]",
           "pb-[env(safe-area-inset-bottom)]",

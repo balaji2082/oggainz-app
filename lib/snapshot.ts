@@ -135,9 +135,23 @@ export function getPacks(customerId: string): Pack[] {
       ORDER BY start_date DESC LIMIT 1`,
   );
 
+  // Every window, not only one covering today — see the note on Pack.pauses.
+  const allPausesStmt = db().prepare(
+    `SELECT start_date, end_date
+       FROM subscription_pauses
+      WHERE subscription_id = ?
+      ORDER BY start_date`,
+  );
+
   return rows.map((r) => {
     const id = String(r.id);
     const p = pauseStmt.get(id, today, today);
+    const windows = (allPausesStmt.all(id) as { start_date: string; end_date: string | null }[])
+      .map((w) => ({
+        start: String(w.start_date),
+        end: w.end_date ? String(w.end_date) : null,
+        kind: (w.end_date === w.start_date ? "skip" : "pause") as "skip" | "pause",
+      }));
     return {
       id,
       planName: String(r.plan_name ?? "Meal Pack"),
@@ -161,6 +175,7 @@ export function getPacks(customerId: string): Pack[] {
             reason: str(p.reason),
           }
         : null,
+      pauses: windows,
       // The snapshot script copies the SQLite file rather than reading through
       // the API, and doesn't shape validity.py's columns — this dev-only path
       // (laptop, no OG_API_BASE set) simply doesn't have an opinion on it.

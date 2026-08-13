@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Shell from "@/components/Shell";
 import SupportScreen from "@/components/SupportScreen";
 import { getCustomerData } from "@/lib/data";
+import { getAvatar } from "@/lib/profiles";
 import { myTickets, unreadCount } from "@/lib/support";
 
 /**
@@ -18,13 +19,14 @@ export default async function Support({
   const data = await getCustomerData(id);
   if (!data.customer) notFound();
 
-  const [tickets, unread] = await Promise.all([
+  const [tickets, unread, avatar] = await Promise.all([
     myTickets(id),
     unreadCount("customer", id),
+    getAvatar(id).catch(() => null),
   ]);
 
   return (
-    <Shell customerId={id} active="support" supportUnread={unread > 0}>
+    <Shell customerId={id} active="support" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>
       <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
         Support
       </p>

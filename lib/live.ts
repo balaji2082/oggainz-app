@@ -129,22 +129,41 @@ function toPack(p: any): Pack {
       expiresOn: p.expires_on ?? null,
       daysLeft: p.validity_days_left ?? null,
     },
+    pauses: Array.isArray(p.pauses)
+      ? p.pauses.map((w: { start: string; end: string | null; kind: string }) => ({
+          start: String(w.start),
+          end: w.end ?? null,
+          kind: w.kind === "skip" ? ("skip" as const) : ("pause" as const),
+        }))
+      : [],
   };
 }
 
 function toMeal(m: any, index: number): Meal & { expected: boolean } {
+  // `projected` means "no delivery row exists yet" — which is true of three
+  // very different days: one that simply hasn't been generated, one the
+  // customer skipped, and one inside a freeze. Only the first is Pending.
+  //
+  // Collapsing all three to Pending is what would have re-hidden skipped days
+  // in the app even after the API started reporting them correctly.
+  const raw = String(m.status ?? "Pending");
+  const status: Meal["status"] =
+    raw === "Expected" ? "Pending" : (raw as Meal["status"]);
+
   return {
     // Projected days have no row and therefore no id; index keeps React keys
     // unique without inventing an id that looks real.
     id: Number(m.id ?? -(index + 1)),
     date: String(m.date),
     slot: asSlot(m.slot),
-    status: (m.projected ? "Pending" : (m.status ?? "Pending")) as Meal["status"],
+    status,
     packId: m.subscription_id ?? null,
     planName: m.plan ?? null,
     dayNote: m.note ?? null,
     isTrial: false,
-    expected: Boolean(m.projected),
+    // Only a genuinely-unwritten future day is "expected". A skipped day is a
+    // decision the customer made, not a forecast.
+    expected: raw === "Expected",
   };
 }
 

@@ -9,7 +9,13 @@
 
 export type Slot = "Lunch" | "Dinner";
 
-export type MealStatus = "Pending" | "Delivered" | "Skipped" | "Off";
+export type MealStatus =
+  | "Pending"
+  | "Delivered"
+  | "Skipped"
+  | "Off"
+  /** Inside a multi-day freeze. No order generates, and that is correct. */
+  | "Paused";
 
 export type PackStatus =
   | "Active"
@@ -56,6 +62,17 @@ export interface Pack {
   /** True while a pause window covers today. */
   pausedToday: boolean;
   pause: { start: string; end: string | null; reason: string | null } | null;
+  /**
+   * EVERY freeze on this pack, past and future — not just one covering today.
+   *
+   * `pause` above answers "is it frozen right now", which is a different
+   * question from "which days are off". A skip three weeks out never covers
+   * today, so relying on `pause` alone made skipped days invisible.
+   *
+   * `kind` separates the two words the interface must not confuse: a one-day
+   * window is a *skip*, a stretch is a *pause* (docs/02 §7.4).
+   */
+  pauses: { start: string; end: string | null; kind: "skip" | "pause" }[];
   /**
    * Validity (docs/01 §7.2, docs/05 §1.1). `enforced` is false for every pack
    * that exists today by default — validity.py on the Command Center is the

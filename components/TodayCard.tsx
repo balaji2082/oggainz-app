@@ -6,6 +6,7 @@ import type { Deadline } from "@/lib/writes";
 import type { Component, Meal, Pack } from "@/lib/types";
 import { componentLabel, relativeDay, shortDate } from "@/lib/format";
 import MealActions from "./MealActions";
+import Sheet from "./ui/Sheet";
 import SupportSheet from "./SupportSheet";
 
 interface Props {
@@ -18,19 +19,72 @@ interface Props {
   serverNow?: string;
 }
 
-function Line({ c }: { c: { name: string; qty: number; unit: string; emoji: string | null; kind: string } }) {
+/** One ingredient line, on the cream sheet rather than the dark card. */
+function SheetLine({
+  c,
+}: {
+  c: { name: string; qty: number; unit: string; emoji: string | null; kind: string };
+}) {
   return (
-    <li className="flex items-baseline gap-2.5 text-[15px] leading-6 og-rise">
-      <span aria-hidden="true" className="w-5 shrink-0 text-center text-[17px]">
+    <li className="flex items-baseline gap-3 border-b border-[var(--og-border)] py-2.5 text-[15px] leading-6 last:border-0">
+      <span aria-hidden="true" className="w-6 shrink-0 text-center text-[18px]">
         {c.emoji ?? "•"}
       </span>
-      <span className="text-[var(--og-on-hero)]">{componentLabel(c as Component)}</span>
+      <span className="flex-1 text-[var(--og-text)]">{componentLabel(c as Component)}</span>
       {c.kind === "addon" && (
-        <span className="rounded-[var(--og-r-pill)] bg-[color-mix(in_srgb,var(--og-lime)_22%,transparent)] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-[var(--og-lime)]">
+        <span className="rounded-[var(--og-r-pill)] bg-[color-mix(in_srgb,var(--og-orange)_16%,transparent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#a44c12]">
           extra
         </span>
       )}
     </li>
+  );
+}
+
+/**
+ * Meals left, drawn on the dark hero.
+ *
+ * The shared ProgressRing in ui/Bits is built for the cream surface and reads
+ * as a grey smudge on forest, so this is its own small thing rather than a
+ * prop-flag on that one. Two components beat one component with a `dark`
+ * boolean threaded through every colour.
+ */
+function HeroRing({ pack }: { pack: Pack }) {
+  const size = 62;
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const used = Math.min(pack.delivered, pack.mealsTotal);
+  const pct = pack.mealsTotal > 0 ? used / pack.mealsTotal : 0;
+
+  return (
+    <div
+      className="relative shrink-0"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={`${pack.remaining} of ${pack.mealsTotal} meals left`}
+    >
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none"
+          stroke="rgba(255,255,255,0.16)" strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none"
+          stroke="var(--og-lime)" strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - pct)}
+          style={{ transition: "stroke-dashoffset var(--og-slow) var(--og-ease)" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="og-tabular font-display text-[17px] font-bold leading-none text-[var(--og-on-hero)]">
+          {pack.remaining}
+        </span>
+        <span className="mt-0.5 text-[8.5px] font-semibold uppercase tracking-[0.1em] text-[var(--og-on-hero-dim)]">
+          left
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -50,6 +104,7 @@ export default function TodayCard({
   serverNow,
 }: Props) {
   const [messaging, setMessaging] = useState(false);
+  const [showingContents, setShowingContents] = useState(false);
   const when = relativeDay(dateISO, todayISO);
 
   if (!kitchenOpen) {
@@ -113,9 +168,38 @@ export default function TodayCard({
             </span>
           </div>
 
-          <h1 className="mt-3 font-display text-[27px] font-bold leading-tight tracking-[-0.02em] text-[var(--og-on-hero)]">
-            {meal.planName ?? "Your meal"}
-          </h1>
+          <div className="mt-3 flex items-start gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-display text-[27px] font-bold leading-tight tracking-[-0.02em] text-[var(--og-on-hero)]">
+                {meal.planName ?? "Your meal"}
+              </h1>
+
+              {/* The contents used to be listed here in full. They are reference
+                  material, not the reason the screen exists — most days you
+                  already know what is in your pack, and six lines of
+                  "Chicken 150g / Egg 2 pcs" pushed the one button that matters
+                  below the fold. One tap away, not gone. */}
+              {base.length + addons.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowingContents(true)}
+                  aria-label="See what's in this meal"
+                  className="og-press mt-2 inline-flex items-center gap-1.5 rounded-[var(--og-r-pill)] bg-white/12 px-3 py-1.5 text-[12px] font-semibold text-[var(--og-on-hero)]"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9.5" />
+                    <path d="M12 11v5.5M12 7.6v.2" />
+                  </svg>
+                  What&apos;s inside
+                </button>
+              )}
+            </div>
+
+            {/* Meals left, on the card itself. It is the number people open the
+                app to check second, after "is food coming today". */}
+            {pack && pack.mealsTotal > 0 && <HeroRing pack={pack} />}
+          </div>
 
           {(delivered || skipped) && (
             <p
@@ -138,17 +222,6 @@ export default function TodayCard({
                 "Skipped — moved to the end of your pack"
               )}
             </p>
-          )}
-
-          {base.length > 0 && (
-            <ul className="og-stagger mt-6 space-y-2">
-              {base.map((c, i) => (
-                <Line key={`b${i}`} c={c} />
-              ))}
-              {addons.map((c, i) => (
-                <Line key={`a${i}`} c={c} />
-              ))}
-            </ul>
           )}
 
           {meal.dayNote && (
@@ -185,6 +258,28 @@ export default function TodayCard({
           )}
         </div>
       </section>
+
+      <Sheet
+        open={showingContents}
+        onClose={() => setShowingContents(false)}
+        title="What's inside"
+        subtitle={meal.planName ?? pack?.planName ?? undefined}
+      >
+        <ul className="og-stagger space-y-1 pb-3">
+          {base.map((c, i) => (
+            <SheetLine key={`b${i}`} c={c} />
+          ))}
+          {addons.map((c, i) => (
+            <SheetLine key={`a${i}`} c={c} />
+          ))}
+        </ul>
+        {addons.length > 0 && (
+          <p className="pb-2 text-[12px] leading-5 text-[var(--og-text-muted)]">
+            Items marked <span className="font-semibold">extra</span> are add-ons
+            on top of the standard pack.
+          </p>
+        )}
+      </Sheet>
 
       <SupportSheet
         open={messaging}
