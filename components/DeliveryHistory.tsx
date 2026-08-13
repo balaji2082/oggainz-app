@@ -4,19 +4,20 @@ import { useMemo, useState } from "react";
 
 import { longDate, shortDate } from "@/lib/format";
 import type { Meal, Pack } from "@/lib/types";
-import { Empty } from "./Bits";
-import PackSwitcher from "./PackSwitcher";
+import { Empty, Pill } from "./Bits";
+import Sheet from "./ui/Sheet";
 
 /**
- * Every day this pack has actually had, one row each.
+ * The receipt: every day a pack has actually had.
  *
- * The receipt. "Twelve of twenty used" is a number a customer has to trust;
- * this is the working behind it, and it is the screen that answers "did you
- * actually deliver on the 4th?" without anyone having to open WhatsApp.
+ * Two levels on purpose. The first is a LIST of subscriptions, current and
+ * finished — because "which pack?" is the question you ask before "which day?",
+ * and a row of chips across the top made the finished ones feel like a setting
+ * rather than a thing you open. Tapping one opens its full record, filterable.
  *
- * Switchable across every pack the customer has ever held, finished ones
- * included — a completed pack's history is exactly the history most worth
- * keeping, and it was previously unreachable once the pack ended.
+ * "Twelve of twenty used" is a number the customer has to take on trust; this
+ * is the working behind it, and it is what answers "did you actually deliver on
+ * the 4th?" without anyone opening WhatsApp.
  */
 
 interface Props {
@@ -25,74 +26,157 @@ interface Props {
   todayISO: string;
 }
 
-const STATE: Record<
-  string,
-  { label: string; dot: string; text: string }
-> = {
-  Delivered: { label: "Delivered", dot: "var(--og-green)", text: "var(--og-text)" },
-  Skipped: { label: "Skipped", dot: "var(--og-orange)", text: "var(--og-text-muted)" },
-  Paused: { label: "Paused", dot: "var(--og-text-muted)", text: "var(--og-text-muted)" },
-  Pending: { label: "Coming", dot: "var(--og-forest)", text: "var(--og-text)" },
-  Off: { label: "Not sent", dot: "var(--og-border)", text: "var(--og-text-muted)" },
+type Filter = "all" | "Delivered" | "Skipped" | "Paused";
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: "all", label: "Everything" },
+  { value: "Delivered", label: "Delivered" },
+  { value: "Skipped", label: "Skipped" },
+  { value: "Paused", label: "Paused" },
+];
+
+const STATE: Record<string, { label: string; dot: string; muted: boolean }> = {
+  Delivered: { label: "Delivered", dot: "var(--og-green)", muted: false },
+  Skipped: { label: "Skipped", dot: "var(--og-orange)", muted: true },
+  Paused: { label: "Paused", dot: "var(--og-text-muted)", muted: true },
+  Pending: { label: "Coming", dot: "var(--og-forest)", muted: false },
+  Off: { label: "Not sent", dot: "var(--og-border)", muted: true },
 };
 
+const LIVE = ["Active", "Ending Soon", "Paused"];
+
 export default function DeliveryHistory({ packs, meals, todayISO }: Props) {
+  const [openPack, setOpenPack] = useState<Pack | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+
   const ordered = useMemo(() => {
-    // Live packs first, then most recent — the one you are most likely to want
-    // is the one you are on, and the one you just finished after that.
-    const rank = (p: Pack) =>
-      p.status === "Completed" || p.status === "Expired" ? 1 : 0;
+    // Running packs first, then the most recently started — the one you are on
+    // is the one you are most likely to want.
+    const rank = (p: Pack) => (LIVE.includes(p.status) ? 0 : 1);
     return [...packs].sort(
       (a, b) => rank(a) - rank(b) || (b.startDate ?? "").localeCompare(a.startDate ?? "")
     );
   }, [packs]);
 
-  const [packId, setPackId] = useState(() => ordered[0]?.id ?? "");
-  const pack = ordered.find((p) => p.id === packId) ?? ordered[0];
-  const [showAll, setShowAll] = useState(false);
+  /** Past and present only — a forecast is not a record. */
+  const recordFor = useMemo(() => {
+    const by: Record<string, (Meal & { expected?: boolean })[]> = {};
+    for (const m of meals) {
+      if (!m.packId || m.expected || m.date > todayISO) continue;
+      (by[m.packId] ??= []).push(m);
+    }
+    for (const list of Object.values(by)) list.sort((a, b) => b.date.localeCompare(a.date));
+    return by;
+  }, [meals, todayISO]);
 
-  const rows = useMemo(() => {
-    if (!pack) return [];
-    return meals
-      .filter((m) => m.packId === pack.id && m.date <= todayISO && !m.expected)
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [meals, pack, todayISO]);
-
-  const shown = showAll ? rows : rows.slice(0, 10);
+  const rows = openPack ? (recordFor[openPack.id] ?? []) : [];
+  const shown = filter === "all" ? rows : rows.filter((m) => m.status === filter);
 
   if (ordered.length === 0) return null;
 
   return (
     <section className="mt-8">
       <h2 className="mb-3 font-display text-[12.5px] font-semibold uppercase tracking-[0.13em] text-[var(--og-text-muted)]">
-        Delivery record
+        Order history
       </h2>
 
-      {ordered.length > 1 && (
-        <PackSwitcher packs={ordered} activeId={pack?.id ?? ""} onPick={(id) => {
-          setPackId(id);
-          setShowAll(false);
-        }} />
-      )}
+      <ul className="overflow-hidden rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] shadow-[var(--og-e1)]">
+        {ordered.map((p, i) => {
+          const count = (recordFor[p.id] ?? []).length;
+          const live = LIVE.includes(p.status);
+          return (
+            <li key={p.id} className={i > 0 ? "border-t border-[var(--og-border)]" : ""}>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenPack(p);
+                  setFilter("all");
+                }}
+                className="og-press flex w-full items-center gap-3 px-4 py-3.5 text-left"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14.5px] font-medium text-[var(--og-text)]">
+                    {p.planName}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-[var(--og-text-muted)]">
+                    {p.startDate ? `From ${shortDate(p.startDate)}` : "—"} ·{" "}
+                    {p.delivered} of {p.mealsTotal} delivered
+                    {count > 0 ? ` · ${count} day${count === 1 ? "" : "s"} on record` : ""}
+                  </p>
+                </div>
+                {live ? <Pill tone="good">Current</Pill> : <Pill tone="quiet">Finished</Pill>}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="var(--og-text-muted)" strokeWidth="2" strokeLinecap="round"
+                     strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
 
-      {rows.length === 0 ? (
-        <Empty
-          title="Nothing yet"
-          body="Every delivered, skipped and paused day will be listed here."
-        />
-      ) : (
-        <>
-          <ul className="overflow-hidden rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] shadow-[var(--og-e1)]">
+      <Sheet
+        open={openPack !== null}
+        onClose={() => setOpenPack(null)}
+        title={openPack?.planName ?? "Record"}
+        subtitle={
+          openPack
+            ? `${openPack.delivered} of ${openPack.mealsTotal} delivered${
+                openPack.skipped > 0 ? ` · ${openPack.skipped} skipped, carried forward` : ""
+              }`
+            : undefined
+        }
+      >
+        {/* The filter Balaji asked for: see only the days food actually came. */}
+        <div className="og-scroll-x -mx-1 mb-4 px-1">
+          <div className="flex gap-2">
+            {FILTERS.map((f) => {
+              const n =
+                f.value === "all"
+                  ? rows.length
+                  : rows.filter((m) => m.status === f.value).length;
+              const on = filter === f.value;
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setFilter(f.value)}
+                  aria-pressed={on}
+                  disabled={n === 0 && f.value !== "all"}
+                  className={[
+                    "og-press shrink-0 whitespace-nowrap rounded-[var(--og-r-pill)] px-3.5 py-2 text-[12.5px] font-semibold",
+                    on
+                      ? "bg-[var(--og-forest)] text-white"
+                      : "bg-[var(--og-surface)] text-[var(--og-text-muted)] ring-1 ring-[var(--og-border)]",
+                    n === 0 && f.value !== "all" ? "opacity-40" : "",
+                  ].join(" ")}
+                >
+                  {f.label}
+                  <span className={on ? "ml-1.5 opacity-75" : "ml-1.5 opacity-60"}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {shown.length === 0 ? (
+          <Empty
+            title="Nothing here"
+            body={
+              filter === "all"
+                ? "This pack has no delivery days on record yet."
+                : "No days match that filter."
+            }
+          />
+        ) : (
+          <ul className="pb-3">
             {shown.map((m, i) => {
               const s = STATE[m.status] ?? STATE.Pending;
               return (
                 <li
                   key={`${m.date}-${m.slot}-${i}`}
-                  className={
-                    i > 0
-                      ? "flex items-center gap-3 border-t border-[var(--og-border)] px-4 py-3"
-                      : "flex items-center gap-3 px-4 py-3"
-                  }
+                  className="flex items-center gap-3 border-b border-[var(--og-border)] py-3 last:border-0"
                 >
                   <span
                     aria-hidden="true"
@@ -100,12 +184,14 @@ export default function DeliveryHistory({ packs, meals, todayISO }: Props) {
                     style={{ background: s.dot }}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-medium" style={{ color: s.text }}>
+                    <p
+                      className="text-[14px] font-medium"
+                      style={{ color: s.muted ? "var(--og-text-muted)" : "var(--og-text)" }}
+                    >
                       {longDate(m.date)}
                     </p>
                     <p className="text-[12px] text-[var(--og-text-muted)]">
                       {m.slot}
-                      {m.planName ? ` · ${m.planName}` : ""}
                       {m.dayNote ? ` · ${m.dayNote}` : ""}
                     </p>
                   </div>
@@ -116,24 +202,8 @@ export default function DeliveryHistory({ packs, meals, todayISO }: Props) {
               );
             })}
           </ul>
-
-          {rows.length > 10 && (
-            <button
-              type="button"
-              onClick={() => setShowAll((v) => !v)}
-              className="og-press mt-3 w-full rounded-[var(--og-r-md)] border border-[var(--og-border)] bg-[var(--og-surface)] px-4 py-3 text-[13px] font-semibold text-[var(--og-forest)]"
-            >
-              {showAll ? "Show less" : `Show all ${rows.length} days`}
-            </button>
-          )}
-
-          <p className="mt-2.5 px-1 text-[11.5px] text-[var(--og-text-muted)]">
-            {pack?.delivered ?? 0} delivered
-            {(pack?.skipped ?? 0) > 0 ? ` · ${pack?.skipped} skipped, carried forward` : ""}
-            {pack?.startDate ? ` · since ${shortDate(pack.startDate)}` : ""}
-          </p>
-        </>
-      )}
+        )}
+      </Sheet>
     </section>
   );
 }

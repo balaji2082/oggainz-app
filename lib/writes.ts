@@ -303,6 +303,29 @@ export async function pendingRequests(): Promise<QueuedRequest[]> {
   /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 
+/**
+ * What customers have actually done lately, decided or not.
+ *
+ * The pending queue answers "what needs me?". This answers "what happened?" —
+ * a skip applied before the deadline never enters the queue by design, so
+ * without this there was nowhere to see that a customer had skipped at all.
+ */
+export async function recentActivity(limit = 60): Promise<QueuedRequest[]> {
+  const raw = await send<{ activity: unknown[] }>(
+    `/api/v1/activity?limit=${limit}`,
+    null,
+    "GET"
+  );
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  return (raw.activity ?? []).map((r: any) => ({
+    ...shapeRequest(r),
+    customerId: String(r.customer_id),
+    customerName: r.customer_name ?? null,
+    history: { lateThisMonth: 0, lateAllTime: 0, allowed: 0, declined: 0 },
+  }));
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+}
+
 export async function decideRequest(
   requestId: number,
   outcome: "allowed" | "declined",

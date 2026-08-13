@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import ActivityFeed from "@/components/admin/ActivityFeed";
 import FeedbackStream from "@/components/admin/FeedbackStream";
 import RequestQueue from "@/components/admin/RequestQueue";
 import SettingsPanel from "@/components/admin/SettingsPanel";
@@ -10,7 +11,13 @@ import { currentSession } from "@/lib/current-user";
 import { recentFeedback, tagTally } from "@/lib/feedback";
 import { isOwnerEmail } from "@/lib/session";
 import { inbox } from "@/lib/support";
-import { pendingRequests, readSettings, readValidityGlobal, validitySummary } from "@/lib/writes";
+import {
+  pendingRequests,
+  readSettings,
+  readValidityGlobal,
+  recentActivity,
+  validitySummary,
+} from "@/lib/writes";
 
 /**
  * Everything that needs Balaji's attention, day to day: skip/pause requests,
@@ -32,9 +39,10 @@ export default async function Ops() {
   const allowed = session.owner === true || isOwnerEmail(email);
   if (!allowed) redirect("/me");
 
-  const [requests, tickets, feedback, tally, settings, validityGlobal, validityRows] =
+  const [requests, activity, tickets, feedback, tally, settings, validityGlobal, validityRows] =
     await Promise.all([
       pendingRequests().catch(() => []),
+      recentActivity().catch(() => []),
       inbox().catch(() => []),
       recentFeedback().catch(() => []),
       tagTally().catch(() => []),
@@ -59,6 +67,10 @@ export default async function Ops() {
 
       <Section title={`Requests ${requests.length > 0 ? `(${requests.length})` : ""}`}>
         <RequestQueue requests={requests} />
+      </Section>
+
+      <Section title="What customers have done">
+        <ActivityFeed activity={activity} />
       </Section>
 
       <Section title="Settings">
