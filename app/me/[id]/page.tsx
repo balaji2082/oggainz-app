@@ -6,7 +6,6 @@ import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
 import TodayCard from "@/components/TodayCard";
 import {
-  getCustomerData,
   getDeadlines,
   isOperatingDay,
   mealsAfter,
@@ -14,8 +13,7 @@ import {
   todayISO,
 } from "@/lib/data";
 import { relativeDay, shortDate } from "@/lib/format";
-import { getAvatar } from "@/lib/profiles";
-import { unreadCount } from "@/lib/support";
+import { loadScreen } from "@/lib/screen";
 
 export default async function CustomerHome({
   params,
@@ -23,24 +21,25 @@ export default async function CustomerHome({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const today = todayISO();
+
   // Access is checked once for every /me/[id] screen, in layout.tsx.
-  const data = await getCustomerData(id);
+  //
+  // One Postgres round trip and one Command Center call, STARTED TOGETHER.
+  // These used to run one after another — the payload, then the deadlines, then
+  // the unread count, then the avatar — stacking four waits end to end on a
+  // screen where none of them needs to know about the others.
+  const [{ data, avatar, unread }, { serverNow, days: deadlineByDate }] = await Promise.all([
+    loadScreen(id),
+    getDeadlines(id, today, today),
+  ]);
   if (!data.customer) notFound();
 
-  const today = todayISO();
   const packs = data.packs;
   const todays = mealsOn(data, today);
   const upcoming = mealsAfter(data, today, 5);
   const packById = new Map(packs.map((p) => [p.id, p]));
   const firstName = data.customer.name.split(" ")[0];
-
-  // The deadline for today's meal(s) only — that's the countdown that matters
-  // on this screen. docs/02 §7.5: computed by the server, never a client timer.
-  const { serverNow, days: deadlineByDate } = await getDeadlines(id, today, today);
-  const [unread, avatar] = await Promise.all([
-    unreadCount("customer", id).catch(() => 0),
-    getAvatar(id).catch(() => null),
-  ]);
 
   return (
     <Shell customerId={id} active="home" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { sql } from "./accounts";
 import { CommandCenterDown } from "./commandcenter";
 import type {
@@ -29,10 +31,30 @@ import type {
  * its age. Never silently, and never presented as current.
  */
 
-const FRESH_MINUTES = 5;
+/**
+ * How long a cached copy is served with no network call at all.
+ *
+ * The Command Center answers in ~150ms and Neon in ~600ms, so the cache is not
+ * protecting us from a slow kitchen — it is protecting every screen from doing
+ * the same work twice within one visit. Tapping between four tabs used to mean
+ * four full refetches.
+ */
+const FRESH_SECONDS = 60;
+
+/**
+ * Beyond this, a copy is old enough that the customer is told its age.
+ *
+ * Between FRESH_SECONDS and here, the copy is served INSTANTLY and refreshed
+ * behind the screen. That is not the stale case docs/03 §6 legislates — that
+ * law is about serving a copy when the Command Center cannot be reached, which
+ * is exactly what still happens below, labelled, in the catch.
+ */
+const STALE_MINUTES = 20;
 
 export interface CustomerData {
   customer: Customer | null;
+  /** Where the food actually goes. Read-only to the customer (docs/05 §3). */
+  addresses: { label: string | null; address: string; isDefault: boolean }[];
   packs: Pack[];
   meals: Meal[];
   invoices: Invoice[];
@@ -205,12 +227,13 @@ async function fetchAll(customerId: string): Promise<Omit<CustomerData, "stale" 
   const id = encodeURIComponent(customerId);
 
   // In parallel: one slow call is the floor, not the sum of five.
-  const [customer, packs, meals, invoices, settings] = await Promise.all([
+  const [customer, packs, meals, invoices, settings, addresses] = await Promise.all([
     get<{ customer: any }>(`/api/v1/customer/${id}`).catch(() => null),          // eslint-disable-line @typescript-eslint/no-explicit-any
     get<{ packs: any[] }>(`/api/v1/customer/${id}/packs`),                       // eslint-disable-line @typescript-eslint/no-explicit-any
     get<{ meals: any[] }>(`/api/v1/customer/${id}/meals?from=${from}&to=${to}`), // eslint-disable-line @typescript-eslint/no-explicit-any
     get<{ invoices: any[] }>(`/api/v1/customer/${id}/invoices`).catch(() => ({ invoices: [] })), // eslint-disable-line @typescript-eslint/no-explicit-any
     get<{ settings: any }>(`/api/v1/settings/public`).catch(() => null),         // eslint-disable-line @typescript-eslint/no-explicit-any
+    get<{ addresses: any[] }>(`/api/v1/customer/${id}/addresses`).catch(() => ({ addresses: [] })), // eslint-disable-line @typescript-eslint/no-explicit-any
   ]);
 
   return {
@@ -222,6 +245,11 @@ async function fetchAll(customerId: string): Promise<Omit<CustomerData, "stale" 
           locality: customer.customer.locality ?? null,
         }
       : null,
+    addresses: (addresses.addresses ?? []).map((a: { label: string | null; address: string; is_default: boolean }) => ({
+      label: a.label ?? null,
+      address: String(a.address ?? ""),
+      isDefault: Boolean(a.is_default),
+    })),
     packs: (packs.packs ?? []).map(toPack),
     meals: (meals.meals ?? []).map(toMeal),
     invoices: (invoices.invoices ?? []).map(toInvoice),
@@ -237,33 +265,80 @@ export async function loadCustomer(customerId: string): Promise<CustomerData> {
   const cached = await sql()`
     SELECT payload, synced_at FROM customer_profiles WHERE customer_id = ${customerId}
   `;
-  const row = cached[0] as { payload: unknown; synced_at: string } | undefined;
-  const ageMinutes = row ? (Date.now() - new Date(row.synced_at).getTime()) / 60000 : Infinity;
+  return fromCache(customerId, cached[0] as CacheRow | undefined);
+}
 
-  if (row?.payload && ageMinutes < FRESH_MINUTES) {
+export interface CacheRow {
+  payload: unknown;
+  synced_at: string;
+}
+
+/**
+ * Turn a cache row into a screen's worth of data, fetching only when it has to.
+ *
+ * Split out from `loadCustomer` so a caller that has ALREADY read the row — as
+ * part of one batched Neon round trip (lib/screen.ts) — does not read it again.
+ * Every extra Neon query is ~150-600ms of a customer staring at nothing.
+ */
+export async function fromCache(
+  customerId: string,
+  row: CacheRow | undefined
+): Promise<CustomerData> {
+  const ageSeconds = row ? (Date.now() - new Date(row.synced_at).getTime()) / 1000 : Infinity;
+
+  // Recent enough to serve outright. No network at all — this is what makes
+  // moving between tabs feel instant instead of costing a round trip each time.
+  if (row?.payload && ageSeconds < FRESH_SECONDS) {
     return { ...(row.payload as Omit<CustomerData, "stale" | "asOf">), stale: false, asOf: null };
   }
 
+  // Older, but we have something real to show. Render it NOW and refresh behind
+  // the screen: a customer who already had this data must never wait on a
+  // network call to see it again. `after()` runs once the response has been
+  // streamed, so it costs the render nothing.
+  if (row?.payload) {
+    after(async () => {
+      try {
+        await refreshCustomer(customerId);
+      } catch {
+        // A background refresh that fails changes nothing on screen. The copy
+        // simply ages, and crosses STALE_MINUTES into being labelled.
+      }
+    });
+    const tooOld = ageSeconds > STALE_MINUTES * 60;
+    return {
+      ...(row.payload as Omit<CustomerData, "stale" | "asOf">),
+      stale: tooOld,
+      asOf: tooOld ? new Date(row.synced_at) : null,
+    };
+  }
+
+  // Nothing cached: there is no honest way to avoid waiting.
   try {
-    const fresh = await fetchAll(customerId);
-    await sql()`
-      INSERT INTO customer_profiles (customer_id, payload, synced_at)
-      VALUES (${customerId}, ${JSON.stringify(fresh)}::jsonb, now())
-      ON CONFLICT (customer_id) DO UPDATE
-        SET payload = EXCLUDED.payload, synced_at = now()
-    `;
-    return { ...fresh, stale: false, asOf: null };
+    return await refreshCustomer(customerId);
   } catch (error) {
     if (!(error instanceof CommandCenterDown)) throw error;
-    if (row?.payload) {
-      return {
-        ...(row.payload as Omit<CustomerData, "stale" | "asOf">),
-        stale: true,
-        asOf: new Date(row.synced_at),
-      };
-    }
     // Nothing cached and nothing reachable. Say so honestly rather than
     // rendering an empty screen that looks like "you have no meals".
     throw error;
   }
+}
+
+/**
+ * Force a read from the Command Center and write it to the cache.
+ *
+ * Called directly after a skip or pause. The alternative — marking the cache
+ * dirty and letting the next render refetch — is what made a skip feel like it
+ * took several seconds: the action returned, the page re-rendered, and only
+ * THEN did the slow fetch happen, with the customer watching.
+ */
+export async function refreshCustomer(customerId: string): Promise<CustomerData> {
+  const fresh = await fetchAll(customerId);
+  await sql()`
+    INSERT INTO customer_profiles (customer_id, payload, synced_at)
+    VALUES (${customerId}, ${JSON.stringify(fresh)}::jsonb, now())
+    ON CONFLICT (customer_id) DO UPDATE
+      SET payload = EXCLUDED.payload, synced_at = now()
+  `;
+  return { ...fresh, stale: false, asOf: null };
 }

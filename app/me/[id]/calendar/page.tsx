@@ -4,10 +4,8 @@ import CalendarScreen from "@/components/CalendarScreen";
 import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
 import { addDays } from "@/lib/format";
-import { getCustomerData, getDeadlines, todayISO } from "@/lib/data";
-import { myFeedback } from "@/lib/feedback";
-import { getAvatar } from "@/lib/profiles";
-import { unreadCount } from "@/lib/support";
+import { getDeadlines, todayISO } from "@/lib/data";
+import { loadScreen } from "@/lib/screen";
 import { myRequests } from "@/lib/writes";
 
 /**
@@ -21,20 +19,20 @@ export default async function Calendar({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await getCustomerData(id);
-  if (!data.customer) notFound();
 
   const today = todayISO();
   const from = addDays(today, -35);
   const to = addDays(today, 60);
 
-  const [{ serverNow, days: deadlines }, feedback, requests, unread, avatar] = await Promise.all([
-    getDeadlines(id, from, to),
-    myFeedback(id, from, to).catch(() => ({})),
-    myRequests(id).catch(() => []),
-    unreadCount("customer", id).catch(() => 0),
-    getAvatar(id).catch(() => null),
-  ]);
+  // Postgres in one round trip, and the two Command Center calls alongside it
+  // rather than after it.
+  const [{ data, avatar, unread, feedback }, { serverNow, days: deadlines }, requests] =
+    await Promise.all([
+      loadScreen(id, [from, to]),
+      getDeadlines(id, from, to),
+      myRequests(id).catch(() => []),
+    ]);
+  if (!data.customer) notFound();
 
   return (
     <Shell customerId={id} active="calendar" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>

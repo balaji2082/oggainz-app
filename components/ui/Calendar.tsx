@@ -45,6 +45,13 @@ interface Props {
   onPickDay?: (date: string) => void;
   /** Nothing before this can be selected in range mode. */
   minISO?: string;
+  /**
+   * `full` gives the grid the whole screen: taller cells, bigger numerals,
+   * bigger markers. The compact grid was legible but cramped — 42px cells with
+   * a 9px icon under a 14px numeral is a lot of meaning in very little space,
+   * and it read as clumsy rather than dense.
+   */
+  size?: "compact" | "full";
 }
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -57,12 +64,13 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
  * the customer back to the key every time. A filled bowl reads as "food came",
  * an outlined one as "food is coming", and neither needs explaining twice.
  */
-function Marker({ state }: { state: DayState }) {
+function Marker({ state, big = false }: { state: DayState; big?: boolean }) {
+  const s = big ? 17 : 13;
   if (state === "delivered") {
     // A full bowl with a tick — the meal arrived.
     return (
       <span aria-hidden="true" className="mt-[3px] text-[var(--og-green)]">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
           <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" fill="currentColor" />
           <path d="M8.5 13.6l2.2 2.2 4.6-4.6" stroke="var(--og-cream)" strokeWidth="2.2"
                 strokeLinecap="round" strokeLinejoin="round" />
@@ -74,7 +82,7 @@ function Marker({ state }: { state: DayState }) {
     // The same bowl, empty — the meal is on its way.
     return (
       <span aria-hidden="true" className="mt-[3px] text-[var(--og-forest)]">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor"
              strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" />
         </svg>
@@ -85,7 +93,7 @@ function Marker({ state }: { state: DayState }) {
     // Deliberately taken off — a bowl crossed through.
     return (
       <span aria-hidden="true" className="mt-[3px] text-[var(--og-orange)]">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor"
              strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" opacity="0.45" />
           <path d="M4.5 19.5L19.5 4.5" />
@@ -96,7 +104,7 @@ function Marker({ state }: { state: DayState }) {
   if (state === "paused") {
     return (
       <span aria-hidden="true" className="mt-[3px] text-[var(--og-text-muted)]">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+        <svg width={s - 1} height={s - 1} viewBox="0 0 24 24" fill="currentColor">
           <rect x="6.5" y="5" width="3.6" height="14" rx="1.6" />
           <rect x="13.9" y="5" width="3.6" height="14" rx="1.6" />
         </svg>
@@ -107,7 +115,7 @@ function Marker({ state }: { state: DayState }) {
     // Waiting on Balaji — a clock, not a verdict.
     return (
       <span aria-hidden="true" className="mt-[3px] text-[var(--og-orange)]">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        <svg width={s - 1} height={s - 1} viewBox="0 0 24 24" fill="none" stroke="currentColor"
              strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 7v5.2l3.2 1.9" />
@@ -119,7 +127,7 @@ function Marker({ state }: { state: DayState }) {
     return (
       <span
         aria-hidden="true"
-        className="mt-[5px] block h-[2.5px] w-3 rounded-full bg-[var(--og-border)]"
+        className={`${big ? "mt-[6px] h-[3px] w-4" : "mt-[5px] h-[2.5px] w-3"} block rounded-full bg-[var(--og-border)]`}
       />
     );
   }
@@ -145,7 +153,9 @@ export default function Calendar({
   onRangeChange,
   onPickDay,
   minISO,
+  size = "compact",
 }: Props) {
+  const full = size === "full";
   const [cursor, setCursor] = useState(() => {
     const [y, m] = todayISO.split("-").map(Number);
     return new Date(y, m - 1, 1);
@@ -211,7 +221,7 @@ export default function Calendar({
         </button>
         <p
           aria-live="polite"
-          className="font-display text-[15.5px] font-semibold tracking-[-0.01em] text-[var(--og-forest)]"
+          className={`font-display font-semibold tracking-[-0.01em] text-[var(--og-forest)] ${full ? "text-[18px]" : "text-[15.5px]"}`}
         >
           {monthLabel}
         </p>
@@ -228,19 +238,19 @@ export default function Calendar({
         </button>
       </div>
 
-      <div className="mb-1 grid grid-cols-7 gap-1">
+      <div className={`mb-1 grid grid-cols-7 ${full ? "gap-1.5" : "gap-1"}`}>
         {WEEKDAYS.map((w, i) => (
           <div
             key={i}
             aria-hidden="true"
-            className="py-1 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--og-text-muted)]"
+            className={`text-center font-semibold uppercase tracking-[0.08em] text-[var(--og-text-muted)] ${full ? "py-2 text-[12px]" : "py-1 text-[11px]"}`}
           >
             {w}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className={`grid grid-cols-7 ${full ? "gap-1.5" : "gap-1"}`}>
         {grid.map((date, i) => {
           if (!date) return <div key={`pad-${i}`} />;
 
@@ -263,8 +273,9 @@ export default function Calendar({
               }`}
               aria-pressed={mode === "range" ? selected : undefined}
               className={[
-                "og-press relative flex aspect-square min-h-[42px] flex-col items-center justify-center",
-                "text-[14px] font-medium",
+                "og-press relative flex aspect-square flex-col items-center justify-center",
+                full ? "min-h-[54px] text-[16.5px]" : "min-h-[42px] text-[14px]",
+                "font-medium",
                 // The selected range wears the same forest→green gradient as the
                 // Today hero, so the two screens read as one product rather than
                 // two. Only the ends are rounded, which is what makes a run of
@@ -295,7 +306,7 @@ export default function Calendar({
               }
             >
               <span className={isToday ? "font-bold" : undefined}>{num}</span>
-              {!selected && <Marker state={day.state} />}
+              {!selected && <Marker state={day.state} big={full} />}
             </button>
           );
         })}

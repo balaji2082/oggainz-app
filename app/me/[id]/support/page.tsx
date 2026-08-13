@@ -2,9 +2,8 @@ import { notFound } from "next/navigation";
 
 import Shell from "@/components/Shell";
 import SupportScreen from "@/components/SupportScreen";
-import { getCustomerData } from "@/lib/data";
-import { getAvatar } from "@/lib/profiles";
-import { myTickets, unreadCount } from "@/lib/support";
+import { loadScreen } from "@/lib/screen";
+import { myTickets } from "@/lib/support";
 
 /**
  * The one door to a human. docs/05 §2 — nothing here ever advertises a late
@@ -16,14 +15,11 @@ export default async function Support({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await getCustomerData(id);
-  if (!data.customer) notFound();
-
-  const [tickets, unread, avatar] = await Promise.all([
+  const [{ data, avatar, unread }, tickets] = await Promise.all([
+    loadScreen(id),
     myTickets(id),
-    unreadCount("customer", id),
-    getAvatar(id).catch(() => null),
   ]);
+  if (!data.customer) notFound();
 
   return (
     <Shell customerId={id} active="support" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>

@@ -5,9 +5,8 @@ import DeliveryHistory from "@/components/DeliveryHistory";
 import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
 import { componentLabel, longDate, rupees, shortDate } from "@/lib/format";
-import { getCustomerData, todayISO } from "@/lib/data";
-import { getAvatar } from "@/lib/profiles";
-import { unreadCount } from "@/lib/support";
+import { todayISO } from "@/lib/data";
+import { loadScreen } from "@/lib/screen";
 import type { Pack } from "@/lib/types";
 
 /**
@@ -23,13 +22,8 @@ export default async function MyPack({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await getCustomerData(id);
+  const { data, avatar, unread } = await loadScreen(id);
   if (!data.customer) notFound();
-
-  const [unread, avatar] = await Promise.all([
-    unreadCount("customer", id).catch(() => 0),
-    getAvatar(id).catch(() => null),
-  ]);
   const packs = data.packs;
   const live = packs.filter(
     (p) => p.status === "Active" || p.status === "Ending Soon" || p.status === "Paused" || p.status === "Expired"

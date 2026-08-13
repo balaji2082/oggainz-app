@@ -42,6 +42,7 @@ export async function getCustomerData(customerId: string): Promise<CustomerData>
   const iso = (d: number) => new Date(Date.parse(today) + d * day).toISOString().slice(0, 10);
   return {
     customer: getCustomer(customerId),
+    addresses: [],
     packs: getPacks(customerId),
     meals: getMeals(customerId, iso(-90), iso(21)),
     invoices: getInvoices(customerId),

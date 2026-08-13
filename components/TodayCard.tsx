@@ -49,8 +49,8 @@ function SheetLine({
  * boolean threaded through every colour.
  */
 function HeroRing({ pack }: { pack: Pack }) {
-  const size = 62;
-  const stroke = 5;
+  const size = 108;
+  const stroke = 8;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const used = Math.min(pack.delivered, pack.mealsTotal);
@@ -77,10 +77,10 @@ function HeroRing({ pack }: { pack: Pack }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="og-tabular font-display text-[17px] font-bold leading-none text-[var(--og-on-hero)]">
+        <span className="og-tabular font-display text-[30px] font-bold leading-none text-[var(--og-on-hero)]">
           {pack.remaining}
         </span>
-        <span className="mt-0.5 text-[8.5px] font-semibold uppercase tracking-[0.1em] text-[var(--og-on-hero-dim)]">
+        <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--og-on-hero-dim)]">
           left
         </span>
       </div>
@@ -253,7 +253,7 @@ export default function TodayCard({
               onClick={() => setMessaging(true)}
               className="og-press mt-5 text-[12.5px] font-semibold text-[var(--og-on-hero-dim)] underline decoration-white/25 underline-offset-4"
             >
-              Something off with this one?
+              Rate today&rsquo;s meal
             </button>
           )}
         </div>

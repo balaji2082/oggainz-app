@@ -3,9 +3,7 @@ import { notFound } from "next/navigation";
 import ProfileScreen from "@/components/ProfileScreen";
 import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
-import { getCustomerData } from "@/lib/data";
-import { getAvatar } from "@/lib/profiles";
-import { unreadCount } from "@/lib/support";
+import { loadScreen } from "@/lib/screen";
 
 /**
  * Your details, and the way out.
@@ -21,13 +19,8 @@ export default async function Account({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await getCustomerData(id);
+  const { data, avatar, unread } = await loadScreen(id);
   if (!data.customer) notFound();
-
-  const [avatar, unread] = await Promise.all([
-    getAvatar(id).catch(() => null),
-    unreadCount("customer", id).catch(() => 0),
-  ]);
   const customer = data.customer;
   const settings = data.settings;
 
@@ -56,7 +49,15 @@ export default async function Account({
         fields={[
           { key: "name", label: "Name", value: customer.name },
           { key: "phone", label: "Phone", value: customer.phone ?? "—" },
-          { key: "area", label: "Area", value: customer.locality ?? "—" },
+          // The real delivery address, not just the locality. "Perumbakkam" is
+          // not enough for a customer to check we have the right door.
+          ...(data.addresses.length > 0
+            ? data.addresses.map((a, i) => ({
+                key: `addr-${i}`,
+                label: a.label ?? (data.addresses.length > 1 ? `Address ${i + 1}` : "Delivery address"),
+                value: a.address,
+              }))
+            : [{ key: "area", label: "Area", value: customer.locality ?? "—" }]),
         ]}
       />
 
@@ -81,12 +82,6 @@ export default async function Account({
       </section>
 
       <section className="pb-4">
-        <a
-          href="https://wa.me/919361798644"
-          className="og-press mb-3 flex w-full items-center justify-center gap-2 rounded-[var(--og-r-md)] border border-[var(--og-border)] bg-[var(--og-surface)] px-5 py-3.5 text-[13.5px] font-semibold text-[var(--og-text-muted)]"
-        >
-          WhatsApp us directly
-        </a>
         <a
           href="/api/auth/logout"
           className="og-press flex w-full items-center justify-center rounded-[var(--og-r-md)] px-5 py-3.5 text-[13.5px] font-semibold text-[var(--og-text-muted)]"

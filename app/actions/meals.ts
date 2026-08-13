@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { sql } from "@/lib/accounts";
+import { refreshCustomer } from "@/lib/live";
 import { pauseRange, resumeFrom, skipDay, unskipDay, type WriteResult } from "@/lib/writes";
 import { saveFeedback } from "@/lib/feedback";
 import { asCustomer, explain, type ActionResult } from "./guard";
@@ -20,12 +21,31 @@ import { asCustomer, explain, type ActionResult } from "./guard";
  * was right. There is no optimistic state anywhere in this file.
  */
 
-/** The cached payload is now wrong — drop it so the next read refetches. */
-async function invalidate(customerId: string) {
-  await sql()`
-    UPDATE customer_profiles SET synced_at = now() - interval '1 day'
-     WHERE customer_id = ${customerId}
-  `;
+/**
+ * The pack has just changed, so re-read it NOW and store the new truth.
+ *
+ * This used to mark the cache dirty and let the next render refetch, which is
+ * why a skip felt like it took seconds and often needed a manual reload: the
+ * action returned, the page began re-rendering, and only THEN did the slow
+ * Command Center read happen — with the customer watching a half-drawn screen.
+ *
+ * Doing it here costs the same one round trip, but it happens while the button
+ * is already showing its spinner, so by the time `router.refresh()` runs the
+ * data is sitting in Postgres and the re-render is a single fast read.
+ *
+ * A failure here is deliberately swallowed: the WRITE already succeeded and the
+ * customer must be told so. The cache simply ages a few seconds and the next
+ * load refreshes it.
+ */
+async function resync(customerId: string) {
+  try {
+    await refreshCustomer(customerId);
+  } catch {
+    await sql()`
+      UPDATE customer_profiles SET synced_at = now() - interval '1 day'
+       WHERE customer_id = ${customerId}
+    `;
+  }
   revalidatePath("/me", "layout");
 }
 
@@ -41,7 +61,7 @@ export async function skipMeal(
   try {
     const { customerId } = await asCustomer();
     const result = await skipDay(customerId, date, { subscriptionId, reason });
-    await invalidate(customerId);
+    await resync(customerId);
     return done(result);
   } catch (error) {
     return explain(error);
@@ -55,7 +75,7 @@ export async function undoSkip(
   try {
     const { customerId } = await asCustomer();
     const result = await unskipDay(customerId, date, { subscriptionId });
-    await invalidate(customerId);
+    await resync(customerId);
     return done(result);
   } catch (error) {
     return explain(error);
@@ -71,7 +91,7 @@ export async function pauseMeals(
   try {
     const { customerId } = await asCustomer();
     const result = await pauseRange(customerId, start, end, { subscriptionId, reason });
-    await invalidate(customerId);
+    await resync(customerId);
     return done(result);
   } catch (error) {
     return explain(error);
@@ -85,7 +105,7 @@ export async function resumeMeals(
   try {
     const { customerId } = await asCustomer();
     const result = await resumeFrom(customerId, from, { subscriptionId });
-    await invalidate(customerId);
+    await resync(customerId);
     return done(result);
   } catch (error) {
     return explain(error);

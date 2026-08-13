@@ -97,10 +97,10 @@ export default function Shell({
           <Image
             src="/brand/stacked_forest.svg"
             alt="OG Gainz"
-            width={104}
-            height={40}
+            width={190}
+            height={74}
             priority
-            className="h-[40px] w-auto"
+            className="h-[64px] w-auto"
           />
         </Link>
 

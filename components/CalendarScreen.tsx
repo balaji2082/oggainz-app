@@ -172,13 +172,25 @@ export default function CalendarScreen({
 
   return (
     <div>
-      {/* Only when there is genuinely a choice to make. */}
-      {packs.length > 1 && (
-        <PackSwitcher packs={packs} activeId={pack?.id ?? ""} onPick={setPackId} />
+      {/* Only the packs that are still running. A finished pack has no day you
+          can act on, and its history belongs in the delivery record, not here
+          as a switch that silently does nothing. */}
+      {livePacks.length > 1 && (
+        <PackSwitcher packs={livePacks} activeId={pack?.id ?? ""} onPick={setPackId} />
       )}
 
-      <div className="rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] p-5 shadow-[var(--og-e1)]">
-        <Calendar days={days} todayISO={todayISO} mode="browse" onPickDay={setOpenDate} />
+      {/* Full bleed. Inside a bordered card the grid lost ~40px of width to
+          padding on a phone, which is most of a column. */}
+      <div className="-mx-5">
+        <div className="px-3">
+          <Calendar
+            days={days}
+            todayISO={todayISO}
+            mode="browse"
+            onPickDay={setOpenDate}
+            size="full"
+          />
+        </div>
       </div>
 
       {pack && LIVE.includes(pack.status) && (
@@ -197,7 +209,7 @@ export default function CalendarScreen({
           >
             Pause a stretch
           </Button>
-          {packs.length > 1 && (
+          {livePacks.length > 1 && (
             <p className="mt-2 text-center text-[12px] text-[var(--og-text-muted)]">
               This pauses {pack.planName} only.
             </p>
@@ -227,7 +239,7 @@ export default function CalendarScreen({
         }}
         title="Pause a stretch"
         subtitle={
-          packs.length > 1 ? `${pack?.planName} · tap your first and last day away`
+          livePacks.length > 1 ? `${pack?.planName} · tap your first and last day away`
                            : "Tap your first and last day away"
         }
         footer={
