@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { sql } from "@/lib/accounts";
 import { refreshCustomer } from "@/lib/live";
+import { forgetScreen } from "@/lib/screen";
 import { pauseRange, resumeFrom, skipDay, unskipDay, type WriteResult } from "@/lib/writes";
 import { saveFeedback } from "@/lib/feedback";
 import { asCustomer, explain, type ActionResult } from "./guard";
@@ -38,6 +39,10 @@ import { asCustomer, explain, type ActionResult } from "./guard";
  * load refreshes it.
  */
 async function resync(customerId: string) {
+  // The in-process memo would otherwise serve the pre-skip copy for a few
+  // seconds — which is exactly long enough for the customer to tap, see no
+  // change, and tap again.
+  forgetScreen(customerId);
   try {
     await refreshCustomer(customerId);
   } catch {
@@ -146,6 +151,7 @@ export async function leaveFeedback(input: {
     }
 
     await saveFeedback({ customerId, ...input });
+    forgetScreen(customerId);
     revalidatePath("/me", "layout");
     return { ok: true, message: "Thank you — this goes straight to the kitchen." };
   } catch (error) {

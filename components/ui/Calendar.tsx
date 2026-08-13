@@ -57,82 +57,90 @@ interface Props {
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 /**
- * What happened on a day, as a small piece of iconography.
+ * How each state looks.
  *
- * Each one is a real shape rather than a coloured dot, because the states mean
- * genuinely different things and a row of identical dots in four colours forces
- * the customer back to the key every time. A filled bowl reads as "food came",
- * an outlined one as "food is coming", and neither needs explaining twice.
+ * The month reads as a heat-map: the TILE carries the meaning and the numeral
+ * stays the biggest thing in the cell. The previous version stacked a small
+ * icon underneath the numeral inside a 42px box, and that is what made the grid
+ * feel cramped — two things competing for the same middle.
+ *
+ * [LAW] docs/02 §7.5 — never colour alone. Delivered carries a tick, skipped
+ * strikes the numeral through, paused carries bars, a request carries a clock,
+ * and a closed day has no tile at all. Every state survives greyscale.
  */
-function Marker({ state, big = false }: { state: DayState; big?: boolean }) {
-  const s = big ? 17 : 13;
-  if (state === "delivered") {
-    // A full bowl with a tick — the meal arrived.
-    return (
-      <span aria-hidden="true" className="mt-[3px] text-[var(--og-green)]">
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" fill="currentColor" />
-          <path d="M8.5 13.6l2.2 2.2 4.6-4.6" stroke="var(--og-cream)" strokeWidth="2.2"
-                strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    );
-  }
-  if (state === "scheduled") {
-    // The same bowl, empty — the meal is on its way.
-    return (
-      <span aria-hidden="true" className="mt-[3px] text-[var(--og-forest)]">
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" />
-        </svg>
-      </span>
-    );
-  }
-  if (state === "skipped") {
-    // Deliberately taken off — a bowl crossed through.
-    return (
-      <span aria-hidden="true" className="mt-[3px] text-[var(--og-orange)]">
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3.5 10.5h17a8.5 8.5 0 0 1-17 0z" opacity="0.45" />
-          <path d="M4.5 19.5L19.5 4.5" />
-        </svg>
-      </span>
-    );
-  }
-  if (state === "paused") {
-    return (
-      <span aria-hidden="true" className="mt-[3px] text-[var(--og-text-muted)]">
-        <svg width={s - 1} height={s - 1} viewBox="0 0 24 24" fill="currentColor">
-          <rect x="6.5" y="5" width="3.6" height="14" rx="1.6" />
-          <rect x="13.9" y="5" width="3.6" height="14" rx="1.6" />
-        </svg>
-      </span>
-    );
-  }
-  if (state === "requested") {
-    // Waiting on Balaji — a clock, not a verdict.
-    return (
-      <span aria-hidden="true" className="mt-[3px] text-[var(--og-orange)]">
-        <svg width={s - 1} height={s - 1} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v5.2l3.2 1.9" />
-        </svg>
-      </span>
-    );
-  }
-  if (state === "closed") {
-    return (
-      <span
-        aria-hidden="true"
-        className={`${big ? "mt-[6px] h-[3px] w-4" : "mt-[5px] h-[2.5px] w-3"} block rounded-full bg-[var(--og-border)]`}
-      />
-    );
-  }
-  return null;
+const Tick = (big: boolean) => (
+  <svg width={big ? 11 : 9} height={big ? 11 : 9} viewBox="0 0 24 24" fill="none"
+       stroke="var(--og-green)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 12.5l5.5 5.5L20 7" />
+  </svg>
+);
+
+const Bars = (big: boolean) => (
+  <svg width={big ? 9 : 7} height={big ? 9 : 7} viewBox="0 0 24 24" fill="var(--og-text-muted)">
+    <rect x="5" y="3" width="5.5" height="18" rx="2.4" />
+    <rect x="13.5" y="3" width="5.5" height="18" rx="2.4" />
+  </svg>
+);
+
+const Clock = (big: boolean) => (
+  <svg width={big ? 11 : 9} height={big ? 11 : 9} viewBox="0 0 24 24" fill="none"
+       stroke="var(--og-orange)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5.2l3.2 1.9" />
+  </svg>
+);
+
+interface Tile {
+  tile: string;
+  text: string;
+  badge?: (big: boolean) => React.ReactNode;
 }
+
+const TILE: Record<DayState, Tile> = {
+  delivered: {
+    tile: "bg-[color-mix(in_srgb,var(--og-green)_15%,transparent)]",
+    text: "text-[#0f6b30]",
+    badge: Tick,
+  },
+  scheduled: {
+    tile: "bg-[var(--og-surface)] ring-1 ring-inset ring-[var(--og-border)]",
+    text: "text-[var(--og-text)]",
+  },
+  skipped: {
+    tile: "bg-[color-mix(in_srgb,var(--og-orange)_13%,transparent)]",
+    text: "text-[#a44c12]",
+  },
+  paused: {
+    tile: "bg-[var(--og-surface-alt)]",
+    text: "text-[var(--og-text-muted)]",
+    badge: Bars,
+  },
+  requested: {
+    tile: "bg-[color-mix(in_srgb,var(--og-orange)_9%,transparent)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--og-orange)_35%,transparent)]",
+    text: "text-[#a44c12]",
+    badge: Clock,
+  },
+  // A closed day gets no tile at all. That is the clearest way to say there is
+  // nothing here — quieter than any shade of grey.
+  closed: {
+    tile: "bg-transparent",
+    text: "text-[color-mix(in_srgb,var(--og-text-muted)_45%,transparent)]",
+  },
+  none: {
+    tile: "bg-transparent",
+    text: "text-[color-mix(in_srgb,var(--og-text-muted)_60%,transparent)]",
+  },
+};
+
+const LABEL: Record<DayState, string> = {
+  delivered: "delivered",
+  scheduled: "meal coming",
+  skipped: "skipped",
+  paused: "paused",
+  requested: "waiting on us",
+  closed: "kitchen closed",
+  none: "nothing scheduled",
+};
 
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
@@ -256,11 +264,22 @@ export default function Calendar({
 
           const day = days[date] ?? { state: "none" as DayState };
           const isToday = date === todayISO;
-          const past = date < todayISO;
           const selected = mode === "range" && inRange(date);
           const isEdge = date === start || date === end;
           const disabled = mode === "range" && !selectable(date, day);
           const num = Number(date.slice(8, 10));
+          const t = TILE[day.state];
+
+          // Range selection overrides the day's own colour: while you are
+          // choosing a stretch, what matters is the stretch.
+          const roundedEdge =
+            date === start && date === end
+              ? "rounded-[var(--og-r-md)]"
+              : date === start
+                ? "rounded-l-[var(--og-r-md)]"
+                : date === end
+                  ? "rounded-r-[var(--og-r-md)]"
+                  : "";
 
           return (
             <button
@@ -268,51 +287,61 @@ export default function Calendar({
               type="button"
               disabled={disabled}
               onClick={() => handle(date, day)}
-              aria-label={`${num} ${monthLabel}${
-                day.state === "closed" ? ", kitchen closed" : `, ${day.state}`
-              }`}
+              aria-label={`${num} ${monthLabel}, ${LABEL[day.state]}`}
               aria-pressed={mode === "range" ? selected : undefined}
               className={[
-                "og-press relative flex aspect-square flex-col items-center justify-center",
-                full ? "min-h-[54px] text-[16.5px]" : "min-h-[42px] text-[14px]",
-                "font-medium",
-                // The selected range wears the same forest→green gradient as the
-                // Today hero, so the two screens read as one product rather than
-                // two. Only the ends are rounded, which is what makes a run of
-                // days look like one continuous stretch instead of seven chips.
+                "og-press relative flex aspect-square items-center justify-center",
+                full ? "min-h-[52px]" : "min-h-[40px]",
                 selected
                   ? isEdge
-                    ? "text-white shadow-[var(--og-e2)]"
-                    : "bg-[color-mix(in_srgb,var(--og-green)_18%,transparent)] text-[var(--og-forest)]"
-                  : "rounded-[var(--og-r-sm)]",
-                selected && isEdge && date === start && date === end ? "rounded-[var(--og-r-sm)]" : "",
-                selected && isEdge && date === start && date !== end
-                  ? "rounded-l-[var(--og-r-sm)]" : "",
-                selected && isEdge && date === end && date !== start
-                  ? "rounded-r-[var(--og-r-sm)]" : "",
-                !selected && day.state === "closed"
-                  ? "text-[color-mix(in_srgb,var(--og-text-muted)_55%,transparent)]"
-                  : "",
-                !selected && past && day.state !== "closed" ? "text-[var(--og-text-muted)]" : "",
-                !selected && !past && day.state !== "closed" ? "text-[var(--og-text)]" : "",
-                disabled ? "cursor-default" : "",
-                !selected && !disabled ? "hover:bg-[var(--og-surface-alt)]" : "",
-                isToday && !selected
-                  ? "ring-1 ring-inset ring-[var(--og-forest)] rounded-[var(--og-r-sm)]"
+                    ? `text-white shadow-[var(--og-e2)] ${roundedEdge}`
+                    : "bg-[color-mix(in_srgb,var(--og-green)_16%,transparent)] text-[var(--og-forest)]"
+                  : `rounded-[var(--og-r-md)] ${t.tile}`,
+                disabled ? "cursor-default opacity-70" : "",
+                !selected && !disabled && day.state !== "closed"
+                  ? "hover:brightness-[0.97]"
                   : "",
               ].join(" ")}
-              style={
-                selected && isEdge ? { background: "var(--og-gradient-brand)" } : undefined
-              }
+              style={selected && isEdge ? { background: "var(--og-gradient-brand)" } : undefined}
             >
-              <span className={isToday ? "font-bold" : undefined}>{num}</span>
-              {!selected && <Marker state={day.state} big={full} />}
+              {/* Today is a ring around the tile, not a colour — so it can sit
+                  on top of any state without arguing with it. */}
+              {isToday && !selected && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-[var(--og-r-md)] ring-2 ring-[var(--og-forest)]"
+                />
+              )}
+
+              <span
+                className={[
+                  full ? "text-[16px]" : "text-[13.5px]",
+                  isToday && !selected ? "font-bold" : "font-medium",
+                  selected ? "" : t.text,
+                  // A struck numeral says "not happening" without needing a key.
+                  day.state === "skipped" && !selected ? "line-through decoration-[1.5px]" : "",
+                ].join(" ")}
+              >
+                {num}
+              </span>
+
+              {/* A small corner badge rather than an icon stacked underneath.
+                  Underneath, it competed with the numeral for the middle of a
+                  40px box and made the whole grid feel cramped. */}
+              {!selected && t.badge && (
+                <span
+                  aria-hidden="true"
+                  className={`absolute ${full ? "bottom-1 right-1" : "bottom-0.5 right-0.5"}`}
+                >
+                  {t.badge(full)}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-[var(--og-border)] pt-3.5 text-[11.5px] text-[var(--og-text-muted)]">
+      <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-2.5 border-t border-[var(--og-border)] pt-4 text-[11.5px] text-[var(--og-text-muted)]">
         <Key state="scheduled" label="Coming" />
         <Key state="delivered" label="Delivered" />
         <Key state="skipped" label="Skipped" />
@@ -323,12 +352,18 @@ export default function Calendar({
   );
 }
 
-/** The key reuses the exact marker from the grid, so they can never drift. */
+/** A miniature of the real tile, so the key and the grid can never drift. */
 function Key({ state, label }: { state: DayState; label: string }) {
+  const t = TILE[state];
   return (
     <li className="flex items-center gap-1.5">
-      <span className="flex h-3.5 w-3.5 items-center justify-center [&>span]:mt-0" aria-hidden="true">
-        <Marker state={state} />
+      <span
+        aria-hidden="true"
+        className={`flex h-4 w-4 items-center justify-center rounded-[5px] ${t.tile}`}
+      >
+        <span className={`text-[8px] font-bold ${t.text} ${state === "skipped" ? "line-through" : ""}`}>
+          {state === "closed" ? "" : "1"}
+        </span>
       </span>
       {label}
     </li>

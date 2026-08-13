@@ -48,7 +48,49 @@ function shapeFeedback(r: any): Feedback {
  * @param feedbackWindow  [from, to] — omit on screens that show no feedback, so
  *                        the query is not paid for where it is not rendered.
  */
+/**
+ * A short-lived cache inside the running server process.
+ *
+ * Vercel reuses a warm instance across requests, so moving between tabs hits
+ * the same process. Without this, every tab change paid the full Postgres round
+ * trip again for data that had not changed in the two seconds since the last
+ * screen asked for it. With it, the second and third tab are free.
+ *
+ * Deliberately tiny and deliberately short. It is not a substitute for the
+ * Postgres cache — it disappears whenever the instance recycles, which is often
+ * — it just stops one person's burst of navigation costing four round trips.
+ */
+const MEMO = new Map<string, { at: number; value: ScreenData }>();
+const MEMO_MS = 8000;
+
+function memoKey(customerId: string, window?: [string, string]) {
+  return `${customerId}|${window?.join(":") ?? ""}`;
+}
+
 export async function loadScreen(
+  customerId: string,
+  feedbackWindow?: [string, string]
+): Promise<ScreenData> {
+  const key = memoKey(customerId, feedbackWindow);
+  const hit = MEMO.get(key);
+  if (hit && Date.now() - hit.at < MEMO_MS) return hit.value;
+
+  const value = await loadScreenUncached(customerId, feedbackWindow);
+
+  // Bounded so a busy instance cannot grow this without limit.
+  if (MEMO.size > 200) MEMO.clear();
+  MEMO.set(key, { at: Date.now(), value });
+  return value;
+}
+
+/** Drop a customer's memo after a write, so the next render sees the change. */
+export function forgetScreen(customerId: string) {
+  for (const k of MEMO.keys()) {
+    if (k.startsWith(`${customerId}|`)) MEMO.delete(k);
+  }
+}
+
+async function loadScreenUncached(
   customerId: string,
   feedbackWindow?: [string, string]
 ): Promise<ScreenData> {

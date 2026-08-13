@@ -12,6 +12,7 @@ import {
   type TicketStatus,
 } from "@/lib/support";
 import { setAvatar, clearAvatar } from "@/lib/profiles";
+import { forgetScreen } from "@/lib/screen";
 import { asCustomer, asOwner, explain, type ActionResult } from "./guard";
 
 /**
@@ -39,6 +40,7 @@ export async function raiseTicket(input: {
       body: input.body,
       context: input.context,
     });
+    forgetScreen(customerId);
     revalidatePath("/me", "layout");
     // Promises a reply, not a result. "We'll sort it out" would be a promise we
     // have not yet decided to keep.
@@ -58,6 +60,7 @@ export async function replyToTicket(ticketId: number, body: string): Promise<Act
     // customerId is passed so a customer can only ever reply to their own
     // thread — the id in the argument proves nothing on its own.
     await reply(ticketId, "customer", body, customerId);
+    forgetScreen(customerId);
     revalidatePath("/me", "layout");
     return { ok: true, message: "Sent." };
   } catch (error) {
@@ -115,6 +118,7 @@ export async function updateAvatar(dataUrl: string): Promise<ActionResult> {
   try {
     const { customerId } = await asCustomer();
     await setAvatar(customerId, dataUrl);
+    forgetScreen(customerId);
     revalidatePath("/me", "layout");
     return { ok: true, message: "Looking good." };
   } catch (error) {
@@ -126,6 +130,7 @@ export async function removeAvatar(): Promise<ActionResult> {
   try {
     const { customerId } = await asCustomer();
     await clearAvatar(customerId);
+    forgetScreen(customerId);
     revalidatePath("/me", "layout");
     return { ok: true, message: "Photo removed." };
   } catch (error) {

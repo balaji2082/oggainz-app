@@ -219,7 +219,11 @@ function toSettings(s: any): PublicSettings {
 function windowDates(): { from: string; to: string } {
   const day = 86400000;
   const iso = (d: number) => new Date(Date.now() + d * day).toISOString().slice(0, 10);
-  return { from: iso(-90), to: iso(21) };
+  // Matched to what the screens actually render: the calendar shows -35 to
+  // +60, and the order history shows the past. Fetching -90 to +21 was both
+  // too much history to ship on every load and too little future for the
+  // calendar's last three weeks, which simply rendered blank.
+  return { from: iso(-70), to: iso(62) };
 }
 
 async function fetchAll(customerId: string): Promise<Omit<CustomerData, "stale" | "asOf">> {
