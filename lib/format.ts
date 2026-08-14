@@ -65,3 +65,20 @@ export function componentLabel(c: Component): string {
 export function rupees(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
+
+/**
+ * "2026-08-14 21:00:00" → "9:00 PM".
+ *
+ * The deadline was being rendered with `deadline.slice(11, 16)`, which gives
+ * "21:00". Correct, and not how anyone in Chennai says it — every other time in
+ * this app (the delivery windows, the invoices) is already 12-hour, so the one
+ * time that mattered most was the one written in a different language.
+ */
+export function clockLabel(deadline: string): string {
+  const hhmm = deadline.slice(11, 16);
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return m === 0 ? `${hour} ${suffix}` : `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+}

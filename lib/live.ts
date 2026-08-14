@@ -337,6 +337,57 @@ export async function fromCache(
  * THEN did the slow fetch happen, with the customer watching.
  */
 /**
+ * Re-read ONLY what a skip, pause or resume can change, and merge it in.
+ *
+ * The full refresh reads six endpoints. Five of them — the customer, their
+ * addresses, the public settings, their invoices — cannot be changed by taking
+ * a day off, so a skip was paying for them anyway, six requests deep, against a
+ * server that runs one worker and answers them one at a time.
+ *
+ * Two calls instead of six is what makes it affordable to WAIT for this before
+ * answering, and waiting is the point: the pack gets a day longer when you skip,
+ * so a new day appears at the end of it. Doing this in the background meant the
+ * screen re-rendered from the copy taken before the skip, the extra day was
+ * missing, and it only turned up when the customer reloaded the page by hand.
+ *
+ * Merged into the stored payload rather than replacing it, so the fields this
+ * does not fetch keep their existing values instead of vanishing.
+ */
+export async function refreshPacksAndMeals(customerId: string): Promise<void> {
+  const { from, to } = windowDates();
+  const id = encodeURIComponent(customerId);
+
+  const [packs, meals] = await Promise.all([
+    get<{ packs: any[] }>(`/api/v1/customer/${id}/packs`),                       // eslint-disable-line @typescript-eslint/no-explicit-any
+    get<{ meals: any[] }>(`/api/v1/customer/${id}/meals?from=${from}&to=${to}`), // eslint-disable-line @typescript-eslint/no-explicit-any
+  ]);
+
+  const patch = JSON.stringify({
+    packs: (packs.packs ?? []).map(toPack),
+    meals: (meals.meals ?? []).map(toMeal),
+  });
+
+  // `||` merges the two objects at the top level, so only these two keys move.
+  //
+  // `payload IS NOT NULL` is load-bearing, not defensive noise: in Postgres
+  // `NULL || anything` is NULL, so without it a row that had never been filled
+  // would be *emptied* by this. And merging into an empty object would be worse
+  // still — a payload holding packs and meals but no customer renders as
+  // notFound(). Touching nothing leaves the next screen to do a full read,
+  // which is exactly the right outcome.
+  await sql()`
+    UPDATE customer_profiles
+       SET payload = payload || ${patch}::jsonb, synced_at = now()
+     WHERE customer_id = ${customerId} AND payload IS NOT NULL
+  `;
+
+  // The freshly-merged copy must not be shadowed by a full refresh that started
+  // before the write and is about to overwrite it with pre-skip data.
+  inFlight.delete(customerId);
+  lastDone.delete(customerId);
+}
+
+/**
  * Refreshes already running or just finished, so one skip cannot become twelve
  * calls to a single free worker.
  *

@@ -5,7 +5,9 @@ import { useState } from "react";
 import type { Deadline } from "@/lib/writes";
 import type { Component, Meal, Pack } from "@/lib/types";
 import { componentLabel, relativeDay, shortDate } from "@/lib/format";
+import FeedbackSheet from "./FeedbackSheet";
 import MealActions from "./MealActions";
+import Icon from "./ui/Icon";
 import Sheet from "./ui/Sheet";
 import SupportSheet from "./SupportSheet";
 
@@ -104,6 +106,7 @@ export default function TodayCard({
   serverNow,
 }: Props) {
   const [messaging, setMessaging] = useState(false);
+  const [rating, setRating] = useState(false);
   const [showingContents, setShowingContents] = useState(false);
   const when = relativeDay(dateISO, todayISO);
 
@@ -202,26 +205,19 @@ export default function TodayCard({
           </div>
 
           {(delivered || skipped) && (
-            <p
-              className={[
-                "mt-2.5 inline-flex items-center gap-1.5 rounded-[var(--og-r-pill)] px-3 py-1.5 text-[12px] font-semibold",
-                delivered
-                  ? "bg-[color-mix(in_srgb,var(--og-lime)_20%,transparent)] text-[var(--og-lime)]"
-                  : "bg-white/12 text-[var(--og-on-hero)]",
-              ].join(" ")}
-            >
-              {delivered ? (
-                <>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                       strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M4 12.5l5.5 5.5L20 7" />
-                  </svg>
-                  Delivered
-                </>
-              ) : (
-                "Skipped — moved to the end of your pack"
-              )}
-            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span
+                className={[
+                  "inline-flex items-center gap-1.5 rounded-[var(--og-r-pill)] px-3 py-1.5 text-[12px] font-semibold",
+                  delivered
+                    ? "bg-[color-mix(in_srgb,var(--og-lime)_20%,transparent)] text-[var(--og-lime)]"
+                    : "bg-white/12 text-[var(--og-on-hero)]",
+                ].join(" ")}
+              >
+                <Icon name={delivered ? "check" : "skip"} size={13} weight={2.6} />
+                {delivered ? "Delivered" : "Skipped · moved to the end"}
+              </span>
+            </div>
           )}
 
           {meal.dayNote && (
@@ -247,13 +243,28 @@ export default function TodayCard({
             </div>
           )}
 
+          {/*
+            Two things were wrong here, and one of them was not cosmetic.
+
+            The button sat on a bare `mt-5` directly under the status pill and
+            the two ran into each other on a narrow phone. It is a real control
+            now — a full-width bar with its own surface — so it cannot collide
+            with anything, and it is obviously tappable rather than a piece of
+            underlined text.
+
+            The other: "Rate today's meal" opened the SUPPORT sheet, so anyone
+            who tapped it ended up writing a message to Balaji instead of
+            leaving feedback — while a whole FeedbackSheet with stars and tags
+            sat unused on this screen. It opens that now.
+          */}
           {delivered && (
             <button
               type="button"
-              onClick={() => setMessaging(true)}
-              className="og-press mt-5 text-[12.5px] font-semibold text-[var(--og-on-hero-dim)] underline decoration-white/25 underline-offset-4"
+              onClick={() => setRating(true)}
+              className="og-press mt-5 flex w-full items-center justify-center gap-2 rounded-[var(--og-r-md)] bg-white/12 px-4 py-3 text-[13.5px] font-semibold text-[var(--og-on-hero)]"
             >
-              Rate today&rsquo;s meal
+              <Icon name="star" size={15} weight={2} />
+              How was it?
             </button>
           )}
         </div>
@@ -280,6 +291,14 @@ export default function TodayCard({
           </p>
         )}
       </Sheet>
+
+      <FeedbackSheet
+        open={rating}
+        onClose={() => setRating(false)}
+        date={dateISO}
+        slot={meal.slot}
+        planName={meal.planName}
+      />
 
       <SupportSheet
         open={messaging}

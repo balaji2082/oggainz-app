@@ -74,10 +74,39 @@ export function mealsBefore(data: CustomerData, dateISO: string): MealPlus[] {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
+/**
+ * Days that are actually COMING — not merely dated in the future.
+ *
+ * This filtered on the date alone, so "Coming up" listed days the customer had
+ * skipped and days inside a freeze, cheerfully promising food that everybody
+ * involved had already agreed would not arrive. A skipped Thursday sitting in a
+ * list headed "Coming up" is not a cosmetic bug: it is the app contradicting
+ * the customer's own instruction back at them.
+ *
+ * Delivered is excluded for the same reason — a future row can be marked
+ * delivered when Balaji works ahead, and it has already happened.
+ *
+ * Also deduplicated by date+slot. A customer holding two packs on one day is
+ * normal, but the projected rows and the real rows could both be present for
+ * the same slot, and the list showed the day twice.
+ */
+// "Pending" only. `toMeal` already folds the API's "Expected" into Pending and
+// records the difference as the `expected` flag, so a projected day is Pending
+// too — which is right: it IS coming, it just has no row yet. "Off" is a day
+// this pack does not run, and belongs here no more than a skip does.
+const COMING = new Set<string>(["Pending"]);
+
 export function mealsAfter(data: CustomerData, dateISO: string, limit?: number): MealPlus[] {
+  const seen = new Set<string>();
   const out = (data.meals as MealPlus[])
-    .filter((m) => m.date > dateISO)
-    .sort((a, b) => (a.date > b.date ? 1 : -1));
+    .filter((m) => m.date > dateISO && COMING.has(m.status))
+    .sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0))
+    .filter((m) => {
+      const key = `${m.date}|${m.slot}|${m.packId ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   return typeof limit === "number" ? out.slice(0, limit) : out;
 }
 

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
 import { Empty, SectionTitle } from "@/components/Bits";
-import PackCard from "@/components/PackCard";
 import StaleNotice from "@/components/StaleNotice";
 import TodayCard from "@/components/TodayCard";
 import {
@@ -82,7 +81,7 @@ export default async function CustomerHome({
       </div>
 
       {upcoming.length > 0 && (
-        <section className="mt-8">
+        <section className="mt-8 pb-4">
           <SectionTitle>Coming up</SectionTitle>
           <ul className="og-stagger overflow-hidden rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] shadow-[var(--og-e1)]">
             {upcoming.map((m, i) => (
@@ -117,17 +116,23 @@ export default async function CustomerHome({
         </section>
       )}
 
-      <section className="mt-8 pb-4">
-        <SectionTitle>{packs.length === 1 ? "Your pack" : "Your packs"}</SectionTitle>
-        <div className="space-y-3">
-          {packs.map((p) => (
-            <PackCard key={p.id} pack={p} customerId={id} />
-          ))}
-          {packs.length === 0 && (
-            <Empty title="No active pack right now" body="Message us when you're ready to start." />
-          )}
-        </div>
-      </section>
+      {/*
+        "Your packs" used to be repeated here in full, under the hero card that
+        already shows the plan name and the meals left, one tab away from the
+        My pack screen that exists to show exactly this. Three copies of one
+        fact, and the two on this screen were the ones nobody asked for.
+
+        The empty state stays, because it is not a repeat — someone with no pack
+        has an empty My pack tab and no reason to think of opening it.
+      */}
+      {packs.length === 0 && (
+        <section className="mt-8 pb-4">
+          <Empty
+            title="No active pack right now"
+            body="Message us when you're ready to start."
+          />
+        </section>
+      )}
     </>
   );
 }

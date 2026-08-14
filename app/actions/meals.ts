@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 
 import { sql } from "@/lib/accounts";
 import { forgetRequests } from "@/lib/data";
-import { refreshCustomer } from "@/lib/live";
+import { refreshPacksAndMeals } from "@/lib/live";
 import { forgetScreen } from "@/lib/screen";
 import { pauseRange, resumeFrom, skipDay, unskipDay, type WriteResult } from "@/lib/writes";
 import { saveFeedback } from "@/lib/feedback";
@@ -27,18 +26,22 @@ import { asCustomer, explain, type ActionResult } from "./guard";
 /**
  * The pack has just changed, so re-read it NOW and store the new truth.
  *
- * This used to mark the cache dirty and let the next render refetch, which is
- * why a skip felt like it took seconds and often needed a manual reload: the
- * action returned, the page began re-rendering, and only THEN did the slow
- * Command Center read happen — with the customer watching a half-drawn screen.
+ * WHY THIS IS AWAITED, when the whole point of the last round was not to await
+ * it. Skipping a day makes the pack one day longer, so a new day appears at its
+ * end — and pausing or resuming moves several. Doing the re-read in the
+ * background meant the screen re-rendered from the copy taken BEFORE the write:
+ * the day the customer tapped changed (that part is carried across by the
+ * confirmed-state in the calendar), but the extra day at the end was missing,
+ * and it only turned up when they reloaded the page by hand.
  *
- * Doing it here costs the same one round trip, but it happens while the button
- * is already showing its spinner, so by the time `router.refresh()` runs the
- * data is sitting in Postgres and the re-render is a single fast read.
+ * What makes waiting affordable is that it is no longer a full refresh. A skip
+ * cannot change your name, your address, the kitchen's hours or your invoices,
+ * so `refreshPacksAndMeals` reads the two things it CAN change. Two requests
+ * rather than six, against a server that answers them one at a time.
  *
- * A failure here is deliberately swallowed: the WRITE already succeeded and the
- * customer must be told so. The cache simply ages a few seconds and the next
- * load refreshes it.
+ * A failure is still swallowed. The WRITE succeeded and the customer must be
+ * told so — a re-read that failed afterwards is our problem, not theirs. The
+ * cache is left dirty so the next screen fetches it properly.
  */
 async function resync(customerId: string) {
   // The in-process memo would otherwise serve the pre-skip copy for a few
@@ -50,40 +53,27 @@ async function resync(customerId: string) {
   // on us" — so the cached request list has to go with the cached pack.
   forgetRequests(customerId);
 
-  // Mark the cached copy dirty IMMEDIATELY, so nothing can serve the old one,
-  // then re-read it AFTER the response has gone out.
-  //
-  // The re-read used to be awaited here, and it is the reason a skip took three
-  // to five seconds: the write itself is one fast call, but the action then sat
-  // through five more fetches before replying. The customer was waiting on work
-  // that only needed to be done before the *next* screen, not before the answer.
-  //
-  // `after()` runs once the response is sent, so the button stops spinning as
-  // soon as the Command Center has confirmed — which is the only moment that
-  // was ever load-bearing (docs/03 §6: confirm nothing the server has not).
-  //
-  // Five minutes, not a day. It only has to be older than FRESH_SECONDS (60s)
-  // to force the re-read — and a day put it past STALE_MINUTES, which made the
-  // very next render show "Showing what we last knew at 4pm yesterday — we
-  // can't reach the kitchen right now". After a skip that had just SUCCEEDED.
-  // The copy was one second old and the Command Center was answering fine.
-  await sql()`
-    UPDATE customer_profiles SET synced_at = now() - interval '5 minutes'
-     WHERE customer_id = ${customerId}
-  `;
-  revalidatePath("/me", "layout");
-
-  after(async () => {
+  try {
+    await refreshPacksAndMeals(customerId);
+  } catch {
+    // Mark the copy dirty so the next render re-reads rather than trusting one
+    // we know is behind. Five minutes, not a day: it only has to beat
+    // FRESH_SECONDS (60s), and a day put it past STALE_MINUTES, which made the
+    // next render announce "we can't reach the kitchen right now" after a skip
+    // that had just succeeded.
     try {
-      // `force`: this refresh must start AFTER the write. An opportunistic one
-      // already in flight was reading the pack as it was before the skip.
-      await refreshCustomer(customerId, { force: true });
-      forgetScreen(customerId);
+      await sql()`
+        UPDATE customer_profiles SET synced_at = now() - interval '5 minutes'
+         WHERE customer_id = ${customerId}
+      `;
     } catch {
-      // Left dirty on purpose: the next render fetches it properly rather than
-      // trusting a copy we know is behind.
+      // Nothing left to try. The memo is already cleared, so the next screen
+      // reads Postgres directly rather than serving anything from this request.
     }
-  });
+  }
+
+  forgetScreen(customerId);
+  revalidatePath("/me", "layout");
 }
 
 function done(result: WriteResult): ActionResult<WriteResult> {

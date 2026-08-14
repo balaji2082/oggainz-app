@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { skipMeal, undoSkip } from "@/app/actions/meals";
+import { clockLabel } from "@/lib/format";
 import Button from "./ui/Button";
+import Icon from "./ui/Icon";
 import Countdown from "./ui/Countdown";
 import Sheet from "./ui/Sheet";
 import { useToast } from "./ui/Toast";
@@ -150,7 +152,7 @@ export default function MealActions({
 
         {!late && deadline && serverNow && (
           <p className={`mt-2.5 text-center text-[12px] ${onHero ? "text-[var(--og-on-hero-dim)]" : "text-[var(--og-text-muted)]"}`}>
-            Change until {deadline.slice(11, 16)} ·{" "}
+            Undo until {clockLabel(deadline)} ·{" "}
             <Countdown deadline={deadline} serverNow={serverNow} />
           </p>
         )}
@@ -200,7 +202,7 @@ export default function MealActions({
 
       {deadline && serverNow && (
         <p className={`mt-2.5 text-center text-[12px] ${onHero ? "text-[var(--og-on-hero-dim)]" : "text-[var(--og-text-muted)]"}`}>
-          You can change this until {deadline.slice(11, 16)} ·{" "}
+          Change until {clockLabel(deadline)} ·{" "}
           <Countdown deadline={deadline} serverNow={serverNow} />
         </p>
       )}
@@ -220,27 +222,46 @@ export default function MealActions({
               busy={busy}
               onClick={() => run(() => skipMeal(date, subscriptionId), "skipped")}
             >
-              Yes, skip it
+              Skip it
             </Button>
           </div>
         }
       >
-        <div className="rounded-[var(--og-r-md)] bg-[color-mix(in_srgb,var(--og-green)_9%,transparent)] p-4">
-          <p className="text-[14px] font-semibold text-[var(--og-heading)]">
-            You don&apos;t lose the meal.
-          </p>
-          <p className="mt-1 text-[13px] leading-5 text-[var(--og-text-muted)]">
-            It moves to the end of your pack, so your pack simply runs one day
-            longer. Nothing is forfeited.
-          </p>
-        </div>
-        {deadline && serverNow && (
-          <p className="mt-4 text-[12.5px] leading-5 text-[var(--og-text-muted)]">
-            You can change your mind until {deadline.slice(11, 16)} —{" "}
-            <Countdown deadline={deadline} serverNow={serverNow} /> — and switch it
-            back as many times as you like before then.
-          </p>
-        )}
+        {/*
+          Two facts, one line each, both reassurances.
+
+          This was three paragraphs saying the same thing three ways — "you
+          don't lose the meal", then "it moves to the end of your pack, so your
+          pack simply runs one day longer", then "nothing is forfeited", then a
+          sentence about changing your mind as many times as you like. Nobody
+          reads four sentences on a confirmation they have already decided to
+          give, and length here reads as nervousness: the more the screen
+          explains that nothing is lost, the more it sounds like something is.
+        */}
+        <ul className="space-y-2.5">
+          <li className="flex items-center gap-3 rounded-[var(--og-r-md)] bg-[color-mix(in_srgb,var(--og-green)_10%,transparent)] px-4 py-3.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--og-green)_18%,transparent)] text-[var(--og-on-green)]">
+              <Icon name="check" size={16} weight={2.6} />
+            </span>
+            <p className="text-[14px] font-medium text-[var(--og-text)]">
+              Moves to the end of your pack.
+            </p>
+          </li>
+
+          {deadline && serverNow && (
+            <li className="flex items-center gap-3 rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-4 py-3.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--og-surface)] text-[var(--og-text-muted)]">
+                <Icon name="clock" size={16} />
+              </span>
+              <p className="text-[14px] font-medium text-[var(--og-text)]">
+                Undo until {clockLabel(deadline)} ·{" "}
+                <span className="text-[var(--og-text-muted)]">
+                  <Countdown deadline={deadline} serverNow={serverNow} /> left
+                </span>
+              </p>
+            </li>
+          )}
+        </ul>
       </Sheet>
     </div>
   );
