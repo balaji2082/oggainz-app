@@ -8,8 +8,8 @@ type Tone = "neutral" | "good" | "warn" | "info" | "quiet";
 
 const TONES: Record<Tone, string> = {
   neutral: "bg-[var(--og-surface-alt)] text-[var(--og-text-muted)]",
-  good: "bg-[color-mix(in_srgb,var(--og-green)_14%,transparent)] text-[#116b31]",
-  warn: "bg-[color-mix(in_srgb,var(--og-orange)_16%,transparent)] text-[#a44c12]",
+  good: "bg-[color-mix(in_srgb,var(--og-green)_14%,transparent)] text-[var(--og-on-green)]",
+  warn: "bg-[color-mix(in_srgb,var(--og-orange)_16%,transparent)] text-[var(--og-on-orange)]",
   info: "bg-[color-mix(in_srgb,var(--og-forest)_10%,transparent)] text-[var(--og-forest)]",
   quiet: "bg-transparent text-[var(--og-text-muted)] ring-1 ring-[var(--og-border)]",
 };

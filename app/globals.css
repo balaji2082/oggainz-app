@@ -28,6 +28,13 @@
   --og-text-inverse: var(--og-white);
   --og-primary: var(--og-forest);
   --og-primary-hover: #013525;
+  /* Text sitting ON the primary fill. Inverts on dark, where primary is lime. */
+  --og-on-primary: #ffffff;
+  /* Text on the tinted green / orange fills used by calendar tiles and pills.
+     Dark ink on a pale tint reads well on cream and disappears on near-black,
+     so these invert with the theme rather than being hardcoded per component. */
+  --og-on-green: #0f6b30;
+  --og-on-orange: #a44c12;
   --og-accent: var(--og-orange);
   --og-highlight: var(--og-lime);
   --og-success: var(--og-green);
@@ -269,3 +276,102 @@ h1, h2, h3, .font-display {
   }
   .og-press:active:not(:disabled) { transform: none; }
 }
+
+/* ===========================================================================
+   THEMES
+
+   Every component reads var(--og-*) and never a raw hex — that rule was worth
+   keeping, because it means a whole visual direction is a palette swap here
+   rather than a rewrite across forty files.
+
+   Balaji picks between these on his phone (Profile → Look). Nothing below
+   changes a single component.
+   =========================================================================== */
+
+/* --- DARK / PREMIUM -------------------------------------------------------
+   The Whoop/Oura register: near-black ground, one accent, generous space.
+   Lime finally earns its keep — on cream it was a highlighter, on near-black
+   it is the only bright thing on the screen and carries every call to action.
+
+   Shadows are almost useless on a dark ground (a black shadow on near-black is
+   invisible), so depth comes from SURFACE LIFT instead: each layer is a step
+   lighter than the one behind it, plus a hairline top edge that reads as light
+   catching the rim.
+   -------------------------------------------------------------------------- */
+:root[data-theme="dark"] {
+  --og-bg: #070f0c;
+  --og-surface: #0e1a15;
+  --og-surface-alt: #16241e;
+  --og-text: #eaf2ec;
+  --og-text-muted: #8fa79b;
+  --og-border: #1f302a;
+
+  --og-primary: var(--og-lime);
+  --og-primary-hover: #d2f065;
+  --og-on-primary: #07120e;
+  --og-on-green: #7fd79b;
+  --og-on-orange: #f5a976;
+
+  /* On dark, the "hero" is the one place that goes LIGHTER, not darker —
+     inverting the usual relationship is what makes it read as raised. */
+  --og-hero:
+    radial-gradient(90% 70% at 12% -10%, rgba(197, 232, 75, 0.18) 0%, transparent 60%),
+    linear-gradient(160deg, #14332a 0%, #0d2921 55%, #091d17 100%);
+  --og-on-hero: #f2f7ef;
+  --og-on-hero-dim: rgba(242, 247, 239, 0.6);
+
+  --og-e1: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --og-e2: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 4px 14px rgba(0, 0, 0, 0.35);
+  --og-e3: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 30px rgba(0, 0, 0, 0.45);
+  --og-e4: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 24px 60px rgba(0, 0, 0, 0.6);
+
+  --og-gradient-brand: linear-gradient(135deg, #1a7a52 0%, var(--og-green) 100%);
+}
+
+/* The forest-on-cream logo disappears on near-black. */
+:root[data-theme="dark"] .og-logo { filter: brightness(0) invert(1); opacity: 0.94; }
+
+/* Buttons that were dark-on-light have to invert their text, or lime type sits
+   on a lime fill. */
+:root[data-theme="dark"] .og-skeleton {
+  background: linear-gradient(100deg, var(--og-surface-alt) 30%,
+              rgba(255,255,255,0.06) 50%, var(--og-surface-alt) 70%);
+  background-size: 220% 100%;
+}
+
+/* --- PLAYFUL --------------------------------------------------------------
+   The Swiggy/Zomato register: warm ground, softer and rounder, colour used
+   freely and confidently rather than reserved for meaning. Deliberately the
+   opposite trade to dark — this one is friendly first and calm second.
+   -------------------------------------------------------------------------- */
+:root[data-theme="playful"] {
+  --og-bg: #fff8ee;
+  --og-surface: #ffffff;
+  --og-surface-alt: #fff1dd;
+  --og-text: #22201c;
+  --og-text-muted: #8a7c6c;
+  --og-border: #f2e2cc;
+
+  --og-r-sm: 16px;
+  --og-r-md: 22px;
+  --og-r-lg: 30px;
+  --og-r-xl: 38px;
+
+  --og-hero:
+    radial-gradient(85% 75% at 85% 0%, rgba(233, 118, 43, 0.30) 0%, transparent 62%),
+    linear-gradient(150deg, #178a49 0%, #0c6b3c 60%, #064f2c 100%);
+
+  /* Warmer and more generous — a friendly interface casts a softer, wider
+     shadow, which is most of why it reads as approachable. */
+  --og-e1: 0 2px 4px rgba(120, 72, 20, 0.06);
+  --og-e2: 0 4px 10px rgba(120, 72, 20, 0.09);
+  --og-e3: 0 10px 26px rgba(120, 72, 20, 0.13);
+  --og-e4: 0 20px 50px rgba(120, 72, 20, 0.18);
+
+  --og-gradient-brand: linear-gradient(135deg, var(--og-green) 0%, var(--og-lime) 100%);
+}
+
+/* No flash of the wrong theme: the inline script in layout.tsx sets data-theme
+   before first paint, and this keeps the ground colour honest meanwhile. */
+:root[data-theme="dark"] body { background: #070f0c; }
+:root[data-theme="playful"] body { background: #fff8ee; }

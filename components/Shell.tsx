@@ -30,7 +30,7 @@ const NAV = [
 ] as const;
 
 function NavIcon({ name, on }: { name: string; on: boolean }) {
-  const stroke = on ? "var(--og-forest)" : "var(--og-text-muted)";
+  const stroke = on ? "var(--og-primary)" : "var(--og-text-muted)";
   const common = {
     width: 21,
     height: 21,
@@ -100,7 +100,7 @@ export default function Shell({
             width={190}
             height={74}
             priority
-            className="h-[64px] w-auto"
+            className="og-logo h-[64px] w-auto"
           />
         </Link>
 
@@ -110,7 +110,7 @@ export default function Shell({
           aria-current={onAccount ? "page" : undefined}
           className={[
             "og-press relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-            onAccount ? "ring-2 ring-[var(--og-forest)] ring-offset-2 ring-offset-[var(--og-bg)]" : "",
+            onAccount ? "ring-2 ring-[var(--og-primary)] ring-offset-2 ring-offset-[var(--og-bg)]" : "",
           ].join(" ")}
         >
           <Avatar src={avatar} name={name ?? "You"} size={38} />
@@ -145,7 +145,7 @@ export default function Shell({
                   <span
                     className={
                       on
-                        ? "text-[10.5px] font-semibold text-[var(--og-forest)]"
+                        ? "text-[10.5px] font-semibold text-[var(--og-primary)]"
                         : "text-[10.5px] text-[var(--og-text-muted)]"
                     }
                   >
@@ -154,7 +154,7 @@ export default function Shell({
                   {on && (
                     <span
                       aria-hidden="true"
-                      className="absolute top-0 h-[2.5px] w-8 rounded-full bg-[var(--og-forest)]"
+                      className="absolute top-0 h-[2.5px] w-8 rounded-full bg-[var(--og-primary)]"
                     />
                   )}
                 </Link>

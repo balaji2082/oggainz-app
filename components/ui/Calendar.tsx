@@ -99,7 +99,7 @@ interface Tile {
 const TILE: Record<DayState, Tile> = {
   delivered: {
     tile: "bg-[color-mix(in_srgb,var(--og-green)_15%,transparent)]",
-    text: "text-[#0f6b30]",
+    text: "text-[var(--og-on-green)]",
     badge: Tick,
   },
   scheduled: {
@@ -108,7 +108,7 @@ const TILE: Record<DayState, Tile> = {
   },
   skipped: {
     tile: "bg-[color-mix(in_srgb,var(--og-orange)_13%,transparent)]",
-    text: "text-[#a44c12]",
+    text: "text-[var(--og-on-orange)]",
   },
   paused: {
     tile: "bg-[var(--og-surface-alt)]",
@@ -117,7 +117,7 @@ const TILE: Record<DayState, Tile> = {
   },
   requested: {
     tile: "bg-[color-mix(in_srgb,var(--og-orange)_9%,transparent)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--og-orange)_35%,transparent)]",
-    text: "text-[#a44c12]",
+    text: "text-[var(--og-on-orange)]",
     badge: Clock,
   },
   // A closed day gets no tile at all. That is the clearest way to say there is
@@ -309,7 +309,7 @@ export default function Calendar({
               {isToday && !selected && (
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 rounded-[var(--og-r-md)] ring-2 ring-[var(--og-forest)]"
+                  className="pointer-events-none absolute inset-0 rounded-[var(--og-r-md)] ring-2 ring-[var(--og-primary)]"
                 />
               )}
 

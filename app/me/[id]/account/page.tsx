@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import ProfileScreen from "@/components/ProfileScreen";
+import ThemeSwitch from "@/components/ThemeSwitch";
 import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
 import { loadScreen } from "@/lib/screen";
@@ -60,6 +61,8 @@ export default async function Account({
             : [{ key: "area", label: "Area", value: customer.locality ?? "—" }]),
         ]}
       />
+
+      <ThemeSwitch />
 
       <section className="mb-6">
         <h2 className="mb-3 font-display text-[12.5px] font-semibold uppercase tracking-[0.13em] text-[var(--og-text-muted)]">

@@ -24,9 +24,9 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-[var(--og-forest)] text-white shadow-[var(--og-e2)] hover:bg-[var(--og-primary-hover)]",
+    "bg-[var(--og-primary)] text-[var(--og-on-primary)] shadow-[var(--og-e2)] hover:bg-[var(--og-primary-hover)]",
   secondary:
-    "bg-[var(--og-surface)] text-[var(--og-forest)] border border-[var(--og-border)] shadow-[var(--og-e1)] hover:bg-[var(--og-surface-alt)]",
+    "bg-[var(--og-surface)] text-[var(--og-text)] border border-[var(--og-border)] shadow-[var(--og-e1)] hover:bg-[var(--og-surface-alt)]",
   ghost:
     "bg-transparent text-[var(--og-text-muted)] hover:bg-[var(--og-surface-alt)]",
   danger:

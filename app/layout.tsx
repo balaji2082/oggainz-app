@@ -38,6 +38,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${poppins.variable} h-full`}>
+      <head>
+        {/*
+          Apply the saved theme BEFORE first paint.
+
+          This has to be a blocking inline script, and it is the one place in
+          this app where that is the right answer. Doing it in a component —
+          even in an effect that runs immediately — means the browser paints the
+          default cream first and then repaints dark, which is a white flash in
+          the face of someone opening the app at night. There is no way to read
+          localStorage from the server, so the choice cannot be made in advance.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('og-theme');if(t&&t!=='classic')document.documentElement.setAttribute('data-theme',t)}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-full">
         <ToastHost>{children}</ToastHost>
       </body>
