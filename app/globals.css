@@ -160,8 +160,17 @@ body {
   background: var(--og-bg);
   color: var(--og-text);
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-  /* Room for the fixed bottom nav + the iOS home indicator. */
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  /*
+   * Room for the tab dock + the iOS home indicator.
+   *
+   * 72px was right for the old flat bar welded to the bottom edge. The dock
+   * floats: 54px of tab, 12px of its own padding, 10px of gap beneath it, and
+   * it is inset from the bottom rather than sitting on it. The last line of
+   * every screen was disappearing behind it — Balaji hit it on the note under
+   * "Pause a stretch", which is exactly the kind of line that gets clipped:
+   * short, last, and easy to miss in testing.
+   */
+  padding-bottom: calc(104px + env(safe-area-inset-bottom));
   -webkit-font-smoothing: antialiased;
 }
 

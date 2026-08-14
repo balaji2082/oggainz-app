@@ -365,30 +365,32 @@ export default function CalendarScreen({
         />
 
         {start && (
-          <div className="og-rise mt-5 rounded-[var(--og-r-md)] bg-[color-mix(in_srgb,var(--og-green)_9%,transparent)] p-4">
-            <p className="font-display text-[15px] font-semibold text-[var(--og-heading)]">
-              {shortDate(start)} {end ? `→ ${shortDate(end)}` : ""}
-            </p>
-            {end && (
-              <>
-                <p className="mt-1 text-[13px] text-[var(--og-text-muted)]">
-                  {operatingInRange.length} meal{operatingInRange.length === 1 ? "" : "s"} paused
-                  · they move to the end of your pack
+          <div className="og-rise mt-5 flex items-center gap-3 rounded-[var(--og-r-md)] bg-[color-mix(in_srgb,var(--og-green)_10%,transparent)] px-4 py-3.5">
+            <span aria-hidden="true" className="text-[16px] leading-none">
+              🍱
+            </span>
+            <div className="min-w-0">
+              <p className="font-display text-[14.5px] font-semibold text-[var(--og-heading)]">
+                {shortDate(start)}
+                {end ? ` → ${shortDate(end)}` : ""}
+              </p>
+              {end && (
+                <p className="text-[12.5px] text-[var(--og-text-muted)]">
+                  {operatingInRange.length} meal{operatingInRange.length === 1 ? "" : "s"}{" "}
+                  · carried forward
                 </p>
-                {deadlines[start]?.late && (
-                  <p className="mt-2 text-[12px] font-medium text-[var(--og-orange)]">
-                    Some of these days are already being prepared — we&apos;ll pass
-                    those on and apply the rest right away.
-                  </p>
-                )}
-              </>
-            )}
+              )}
+            </div>
           </div>
+        )}
+        {start && end && deadlines[start]?.late && (
+          <p className="mt-2.5 text-[12px] font-medium text-[var(--og-orange)]">
+            Some of these days are already being prepared — we&apos;ll pass those on.
+          </p>
         )}
         {!start && (
           <p className="mt-4 text-[12.5px] leading-5 text-[var(--og-text-muted)]">
-            Weekends and holidays are shown closed — pausing them doesn&apos;t save
-            a meal, so they can&apos;t be picked.
+            Weekends are shown closed — pausing them doesn&apos;t save a meal.
           </p>
         )}
       </Sheet>

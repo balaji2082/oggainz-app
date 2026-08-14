@@ -215,7 +215,7 @@ export default function TodayCard({
                 ].join(" ")}
               >
                 <Icon name={delivered ? "check" : "skip"} size={13} weight={2.6} />
-                {delivered ? "Delivered" : "Skipped · moved to the end"}
+                {delivered ? "Delivered" : "Skipped · carried forward"}
               </span>
             </div>
           )}

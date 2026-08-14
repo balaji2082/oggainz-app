@@ -124,14 +124,16 @@ export default function DaySheet({
             no longer depends on there being no meal row — a paused day has one. */}
         {!pendingRequest && (state === "paused" || meal?.status === "Paused") && (
           <div>
-            <div className="mb-4 flex items-center gap-2.5 rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-3.5 py-3">
-              <span className="flex gap-[3px] text-[var(--og-text-muted)]" aria-hidden="true">
-                <i className="block h-3 w-[3px] rounded-full bg-current" />
-                <i className="block h-3 w-[3px] rounded-full bg-current" />
+            <div className="mb-4 flex items-center gap-3 rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-3.5 py-3">
+              <span aria-hidden="true" className="text-[16px] leading-none">
+                🍱
               </span>
-              <p className="text-[13.5px] text-[var(--og-text)]">
-                Your pack is paused this day.
-              </p>
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-semibold text-[var(--og-text)]">Paused</p>
+                <p className="text-[12.5px] leading-4 text-[var(--og-text-muted)]">
+                  Carried forward
+                </p>
+              </div>
             </div>
             {future && (
               <Button variant="secondary" full busy={resuming} onClick={doResume}>

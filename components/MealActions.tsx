@@ -111,26 +111,30 @@ export default function MealActions({
   if (skipped) {
     return (
       <div className={onHero ? "text-[var(--og-on-hero)]" : ""}>
+        {/*
+          The promise still gets restated every time (docs/02 §7.4) — it is just
+          said once, in four words, instead of as a sentence apologising for
+          itself. "You don't lose the meal — it moves to the end of your pack"
+          led with the worry rather than the answer, and a customer who has
+          already skipped is not reading a paragraph about it.
+        */}
         <div
           className={[
-            "mb-3 flex items-start gap-2.5 rounded-[var(--og-r-md)] px-3.5 py-3",
+            "mb-3 flex items-center gap-3 rounded-[var(--og-r-md)] px-3.5 py-3",
             onHero
               ? "bg-[rgba(255,255,255,0.08)]"
               : "bg-[color-mix(in_srgb,var(--og-green)_10%,transparent)]",
           ].join(" ")}
         >
-          <span className={onHero ? "text-[var(--og-lime)]" : "text-[var(--og-green)]"}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="mt-[1px]"
-                 aria-hidden="true">
-              <path d="M4 12.5l5.5 5.5L20 7" />
-            </svg>
+          <span aria-hidden="true" className="text-[16px] leading-none">
+            🍱
           </span>
           <div className="min-w-0">
             <p className="text-[13.5px] font-semibold">Skipped</p>
-            {/* The promise, restated every single time (docs/02 §7.4). */}
-            <p className={`text-[12.5px] leading-4 ${onHero ? "text-[var(--og-on-hero-dim)]" : "text-[var(--og-text-muted)]"}`}>
-              You don&apos;t lose the meal — it moves to the end of your pack.
+            <p
+              className={`text-[12.5px] leading-4 ${onHero ? "text-[var(--og-on-hero-dim)]" : "text-[var(--og-text-muted)]"}`}
+            >
+              Carried forward
             </p>
           </div>
         </div>
@@ -213,12 +217,19 @@ export default function MealActions({
         title="Skip this meal?"
         subtitle={`${slot} · ${planName ?? "Your meal"}`}
         footer={
-          <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setConfirming(false)}>
+          /*
+            Two real buttons of equal weight, side by side on one line.
+            "Keep it" was a `ghost` — no fill, no border, just text next to a
+            solid button — which read as half-drawn rather than as the safe
+            choice it is. It is a proper surfaced button now; the skip stays
+            primary because it is the thing being confirmed, not because it is
+            the one we want tapped.
+          */
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="secondary" onClick={() => setConfirming(false)}>
               Keep it
             </Button>
             <Button
-              full
               busy={busy}
               onClick={() => run(() => skipMeal(date, subscriptionId), "skipped")}
             >
@@ -240,11 +251,14 @@ export default function MealActions({
         */}
         <ul className="space-y-2.5">
           <li className="flex items-center gap-3 rounded-[var(--og-r-md)] bg-[color-mix(in_srgb,var(--og-green)_10%,transparent)] px-4 py-3.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--og-green)_18%,transparent)] text-[var(--og-on-green)]">
-              <Icon name="check" size={16} weight={2.6} />
+            <span
+              aria-hidden="true"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--og-green)_18%,transparent)] text-[15px]"
+            >
+              🍱
             </span>
             <p className="text-[14px] font-medium text-[var(--og-text)]">
-              Moves to the end of your pack.
+              Will be carried forward
             </p>
           </li>
 
