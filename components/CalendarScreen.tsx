@@ -51,6 +51,18 @@ export default function CalendarScreen({
   const [range, setRange] = useState<[string | null, string | null]>([null, null]);
   const [pending, startTransition] = useTransition();
 
+  /**
+   * Days the SERVER has just confirmed, held locally until the refetch lands.
+   *
+   * Not optimism — docs/03 §6 forbids claiming a skip the server has not
+   * accepted, and nothing goes in here until the write has returned `ok`. It
+   * exists because the re-read now happens after the response (app/actions:
+   * resync), so for a second or two the page still holds the pre-skip copy and
+   * the day would visibly snap back before settling. This carries the confirmed
+   * answer across that gap.
+   */
+  const [confirmed, setConfirmed] = useState<Record<string, DayState>>({});
+
   const livePacks = useMemo(() => packs.filter((p) => LIVE.includes(p.status)), [packs]);
 
   /**
@@ -130,8 +142,13 @@ export default function CalendarScreen({
       else if (pendingByDate.has(meal.date)) state = "requested";
       out[meal.date] = { state, changeable: !late, slot: meal.slot };
     }
+
+    // The server's own answer wins over anything the payload still says.
+    for (const [date, state] of Object.entries(confirmed)) {
+      out[date] = { ...(out[date] ?? {}), state };
+    }
     return out;
-  }, [packMeals, pack, deadlines, todayISO, pendingByDate, operatingWeekdays]);
+  }, [packMeals, pack, deadlines, todayISO, pendingByDate, operatingWeekdays, confirmed]);
 
   const selectedMeals = openDate ? packMeals.filter((m) => m.date === openDate) : [];
   const selectedDeadline = openDate ? deadlines[openDate] : undefined;
@@ -163,6 +180,18 @@ export default function CalendarScreen({
       const result = await pauseMeals(start, end, pack.id);
       toast(result.message, result.ok ? "good" : "bad");
       if (result.ok) {
+        // Paint exactly the days the server said it applied — not the range
+        // that was asked for. A partial pause applies some and queues the rest
+        // (docs/02 §4), and showing the asked-for range would claim more than
+        // happened.
+        const applied = result.data?.applied ?? [];
+        const queued = result.data?.pending ?? [];
+        setConfirmed((c) => {
+          const next = { ...c };
+          for (const d of applied) next[d] = "paused";
+          for (const d of queued) next[d] = "requested";
+          return next;
+        });
         setPausing(false);
         setRange([null, null]);
         router.refresh();
@@ -229,6 +258,8 @@ export default function CalendarScreen({
         serverNow={serverNow ?? undefined}
         feedback={openDate ? feedback[`${openDate}|${selectedMeals[0]?.slot ?? "Lunch"}`] : undefined}
         pendingRequest={selectedPending}
+        confirmedState={openDate ? confirmed[openDate] : undefined}
+        onConfirmed={(date, state) => setConfirmed((c) => ({ ...c, [date]: state }))}
       />
 
       <Sheet

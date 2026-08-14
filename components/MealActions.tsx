@@ -41,6 +41,11 @@ interface Props {
   onHero?: boolean;
   /** Opens the support sheet with this meal pre-filled. */
   onMessageUs?: () => void;
+  /**
+   * Fired only after the SERVER confirms, so the calendar can show the change
+   * before the refetch lands. Never called optimistically (docs/03 §6).
+   */
+  onConfirmed?: (state: "skipped" | "scheduled") => void;
 }
 
 export default function MealActions({
@@ -54,15 +59,20 @@ export default function MealActions({
   subscriptionId,
   onHero,
   onMessageUs,
+  onConfirmed,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
   const toast = useToast();
   const router = useRouter();
 
-  function run(action: () => Promise<{ ok: boolean; message: string }>) {
+  function run(
+    action: () => Promise<{ ok: boolean; message: string }>,
+    becomes: "skipped" | "scheduled"
+  ) {
     startTransition(async () => {
       const result = await action();
+      if (result.ok) onConfirmed?.(becomes);
       toast(result.message, result.ok ? "good" : "bad");
       setConfirming(false);
       // Re-read rather than patch. The server may have applied something
@@ -105,7 +115,7 @@ export default function MealActions({
             variant={onHero ? "hero" : "secondary"}
             full
             busy={pending}
-            onClick={() => run(() => undoSkip(date, subscriptionId))}
+            onClick={() => run(() => undoSkip(date, subscriptionId), "scheduled")}
           >
             Undo skip
           </Button>
@@ -185,7 +195,7 @@ export default function MealActions({
             <Button
               full
               busy={pending}
-              onClick={() => run(() => skipMeal(date, subscriptionId))}
+              onClick={() => run(() => skipMeal(date, subscriptionId), "skipped")}
             >
               Yes, skip it
             </Button>

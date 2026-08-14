@@ -28,6 +28,9 @@ interface Props {
   serverNow?: string;
   feedback?: Feedback;
   pendingRequest?: SkipRequest;
+  /** A state the server has just confirmed, ahead of the payload catching up. */
+  confirmedState?: DayState;
+  onConfirmed?: (date: string, state: DayState) => void;
 }
 
 const TAG_LABEL: Record<string, string> = {
@@ -48,6 +51,8 @@ export default function DaySheet({
   serverNow,
   feedback,
   pendingRequest,
+  confirmedState,
+  onConfirmed,
 }: Props) {
   const [rating, setRating] = useState(false);
   const [messaging, setMessaging] = useState(false);
@@ -187,13 +192,14 @@ export default function DaySheet({
                 deadline={deadline?.deadline}
                 serverNow={serverNow}
                 late={deadline?.late ?? date < todayISO}
-                skipped={meal.status === "Skipped"}
+                skipped={confirmedState ? confirmedState === "skipped" : meal.status === "Skipped"}
                 // The meal's OWN pack, never the one the screen happens to be
                 // showing. These are the same thing today because the calendar
                 // filters by pack — but binding a write to the container rather
                 // than to the row is exactly how the wrong pack got skipped.
                 subscriptionId={meal.packId ?? pack?.id ?? undefined}
                 onMessageUs={() => setMessaging(true)}
+                onConfirmed={(state) => onConfirmed?.(date, state)}
               />
             )}
           </div>
@@ -211,9 +217,10 @@ export default function DaySheet({
             deadline={deadline?.deadline}
             serverNow={serverNow}
             late={deadline?.late ?? date < todayISO}
-            skipped={false}
+            skipped={confirmedState === "skipped"}
             subscriptionId={pack.id}
             onMessageUs={() => setMessaging(true)}
+            onConfirmed={(state) => onConfirmed?.(date, state)}
           />
         )}
       </Sheet>

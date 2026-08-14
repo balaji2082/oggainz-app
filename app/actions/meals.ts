@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { sql } from "@/lib/accounts";
 import { refreshCustomer } from "@/lib/live";
@@ -43,15 +44,33 @@ async function resync(customerId: string) {
   // seconds — which is exactly long enough for the customer to tap, see no
   // change, and tap again.
   forgetScreen(customerId);
-  try {
-    await refreshCustomer(customerId);
-  } catch {
-    await sql()`
-      UPDATE customer_profiles SET synced_at = now() - interval '1 day'
-       WHERE customer_id = ${customerId}
-    `;
-  }
+
+  // Mark the cached copy dirty IMMEDIATELY, so nothing can serve the old one,
+  // then re-read it AFTER the response has gone out.
+  //
+  // The re-read used to be awaited here, and it is the reason a skip took three
+  // to five seconds: the write itself is one fast call, but the action then sat
+  // through five more fetches before replying. The customer was waiting on work
+  // that only needed to be done before the *next* screen, not before the answer.
+  //
+  // `after()` runs once the response is sent, so the button stops spinning as
+  // soon as the Command Center has confirmed — which is the only moment that
+  // was ever load-bearing (docs/03 §6: confirm nothing the server has not).
+  await sql()`
+    UPDATE customer_profiles SET synced_at = now() - interval '1 day'
+     WHERE customer_id = ${customerId}
+  `;
   revalidatePath("/me", "layout");
+
+  after(async () => {
+    try {
+      await refreshCustomer(customerId);
+      forgetScreen(customerId);
+    } catch {
+      // Left dirty on purpose: the next render fetches it properly rather than
+      // trusting a copy we know is behind.
+    }
+  });
 }
 
 function done(result: WriteResult): ActionResult<WriteResult> {
