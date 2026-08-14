@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
 import { sql } from "@/lib/accounts";
+import { forgetRequests } from "@/lib/data";
 import { refreshCustomer } from "@/lib/live";
 import { forgetScreen } from "@/lib/screen";
 import { pauseRange, resumeFrom, skipDay, unskipDay, type WriteResult } from "@/lib/writes";
@@ -45,6 +46,10 @@ async function resync(customerId: string) {
   // change, and tap again.
   forgetScreen(customerId);
 
+  // A late skip queues a request, and the calendar draws those days as "waiting
+  // on us" — so the cached request list has to go with the cached pack.
+  forgetRequests(customerId);
+
   // Mark the cached copy dirty IMMEDIATELY, so nothing can serve the old one,
   // then re-read it AFTER the response has gone out.
   //
@@ -70,7 +75,9 @@ async function resync(customerId: string) {
 
   after(async () => {
     try {
-      await refreshCustomer(customerId);
+      // `force`: this refresh must start AFTER the write. An opportunistic one
+      // already in flight was reading the pack as it was before the skip.
+      await refreshCustomer(customerId, { force: true });
       forgetScreen(customerId);
     } catch {
       // Left dirty on purpose: the next render fetches it properly rather than

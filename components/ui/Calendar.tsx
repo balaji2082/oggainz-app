@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import Icon from "./Icon";
+
 /**
  * The month, and the two things you can do to it.
  *
@@ -56,79 +58,82 @@ interface Props {
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
-/**
- * How each state looks.
- *
- * The month reads as a heat-map: the TILE carries the meaning and the numeral
- * stays the biggest thing in the cell. The previous version stacked a small
- * icon underneath the numeral inside a 42px box, and that is what made the grid
- * feel cramped — two things competing for the same middle.
- *
- * [LAW] docs/02 §7.5 — never colour alone. Delivered carries a tick, skipped
- * strikes the numeral through, paused carries bars, a request carries a clock,
- * and a closed day has no tile at all. Every state survives greyscale.
- */
-const Tick = (big: boolean) => (
-  <svg width={big ? 11 : 9} height={big ? 11 : 9} viewBox="0 0 24 24" fill="none"
-       stroke="var(--og-green)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 12.5l5.5 5.5L20 7" />
-  </svg>
-);
-
-const Bars = (big: boolean) => (
-  <svg width={big ? 9 : 7} height={big ? 9 : 7} viewBox="0 0 24 24" fill="var(--og-text-muted)">
-    <rect x="5" y="3" width="5.5" height="18" rx="2.4" />
-    <rect x="13.5" y="3" width="5.5" height="18" rx="2.4" />
-  </svg>
-);
-
-const Clock = (big: boolean) => (
-  <svg width={big ? 11 : 9} height={big ? 11 : 9} viewBox="0 0 24 24" fill="none"
-       stroke="var(--og-orange)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5.2l3.2 1.9" />
-  </svg>
-);
-
 interface Tile {
   tile: string;
   text: string;
-  badge?: (big: boolean) => React.ReactNode;
+  /**
+   * The mark under the numeral — fill and colour ONLY, never width.
+   *
+   * Width is a separate flag because the key renders the same marks at a
+   * smaller size, and packing `w-3.5` in here meant the key had to override it
+   * with an `!important` utility. Tailwind v4 moved that syntax from `!w-1` to
+   * `w-1!`, so the prefix form silently did nothing — a bug that would have
+   * shipped looking almost right. Keeping the two concerns apart means neither
+   * place has to fight the other.
+   */
+  mark?: string;
+  /** Paused spans days, so its mark spans too. */
+  wide?: boolean;
 }
 
+/**
+ * How each state looks — and what the redesign was fixing.
+ *
+ * The old grid hung a different little icon in the bottom-right CORNER of every
+ * cell: a tick, two bars, a clock, each drawn at its own stroke weight. On a
+ * phone that is a 10px glyph crammed into a rounded corner, and five of them in
+ * one week turned the month into confetti — the eye had to READ the calendar
+ * rather than see it.
+ *
+ * Now the tile carries the state and every state gets the SAME mark: one shape,
+ * centred under the numeral, same size, same position, differing only in colour
+ * and fill. The month reads as a rhythm; a single day still reads exactly when
+ * you look straight at it.
+ *
+ * [LAW] docs/02 §7.5 — never colour alone, and this still keeps it. Delivered is
+ * solid, coming is a hollow ring, skipped is solid AND strikes the numeral
+ * through, paused is a wide bar (it is a stretch, not a day), waiting is a
+ * hollow ring in orange, closed has no tile at all. Every state is told apart by
+ * shape and fill in greyscale, not by hue.
+ */
 const TILE: Record<DayState, Tile> = {
   delivered: {
-    tile: "bg-[color-mix(in_srgb,var(--og-green)_15%,transparent)]",
+    tile: "bg-[color-mix(in_srgb,var(--og-green)_16%,transparent)]",
     text: "text-[var(--og-on-green)]",
-    badge: Tick,
+    mark: "bg-[var(--og-green)]",
   },
   scheduled: {
-    tile: "bg-[var(--og-surface)] ring-1 ring-inset ring-[var(--og-border)]",
+    // A hairline, not a filled card. Most of a month is scheduled days, and
+    // giving each one its own surface made the grid a wall of buttons.
+    tile: "ring-1 ring-inset ring-[var(--og-border)]",
     text: "text-[var(--og-text)]",
+    mark: "ring-[1.5px] ring-inset ring-[var(--og-text-muted)] opacity-60",
   },
   skipped: {
-    tile: "bg-[color-mix(in_srgb,var(--og-orange)_13%,transparent)]",
+    tile: "bg-[color-mix(in_srgb,var(--og-orange)_15%,transparent)]",
     text: "text-[var(--og-on-orange)]",
+    mark: "bg-[var(--og-orange)]",
   },
   paused: {
     tile: "bg-[var(--og-surface-alt)]",
     text: "text-[var(--og-text-muted)]",
-    badge: Bars,
+    mark: "bg-[var(--og-text-muted)] opacity-70",
+    wide: true,
   },
   requested: {
-    tile: "bg-[color-mix(in_srgb,var(--og-orange)_9%,transparent)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--og-orange)_35%,transparent)]",
+    tile: "bg-[color-mix(in_srgb,var(--og-orange)_10%,transparent)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--og-orange)_40%,transparent)]",
     text: "text-[var(--og-on-orange)]",
-    badge: Clock,
+    mark: "ring-[1.5px] ring-inset ring-[var(--og-orange)]",
   },
   // A closed day gets no tile at all. That is the clearest way to say there is
   // nothing here — quieter than any shade of grey.
   closed: {
     tile: "bg-transparent",
-    text: "text-[color-mix(in_srgb,var(--og-text-muted)_45%,transparent)]",
+    text: "text-[color-mix(in_srgb,var(--og-text-muted)_42%,transparent)]",
   },
   none: {
     tile: "bg-transparent",
-    text: "text-[color-mix(in_srgb,var(--og-text-muted)_60%,transparent)]",
+    text: "text-[color-mix(in_srgb,var(--og-text-muted)_55%,transparent)]",
   },
 };
 
@@ -184,6 +189,13 @@ export default function Calendar({
   const [start, end] = range ?? [null, null];
   const min = minISO ?? todayISO;
 
+  const [todayYear, todayMonth] = [
+    Number(todayISO.slice(0, 4)),
+    Number(todayISO.slice(5, 7)) - 1,
+  ];
+  const showingToday =
+    cursor.getFullYear() === todayYear && cursor.getMonth() === todayMonth;
+
   function inRange(date: string) {
     if (!start) return false;
     if (!end) return date === start;
@@ -215,43 +227,65 @@ export default function Calendar({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Previous month"
-          onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-          className="og-press flex h-10 w-10 items-center justify-center rounded-full text-[var(--og-heading)] hover:bg-[var(--og-surface-alt)]"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M15 5l-7 7 7 7" />
-          </svg>
-        </button>
-        <p
-          aria-live="polite"
-          className={`font-display font-semibold tracking-[-0.01em] text-[var(--og-heading)] ${full ? "text-[18px]" : "text-[15.5px]"}`}
-        >
-          {monthLabel}
-        </p>
-        <button
-          type="button"
-          aria-label="Next month"
-          onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-          className="og-press flex h-10 w-10 items-center justify-center rounded-full text-[var(--og-heading)] hover:bg-[var(--og-surface-alt)]"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        {/* Month and year on two lines, left-aligned. Centred between two arrows
+            it read as a widget; left-aligned with the year quiet underneath it
+            reads as a heading, which is what it is. */}
+        <div className="min-w-0">
+          <p
+            aria-live="polite"
+            className={`font-display font-semibold leading-none tracking-[-0.02em] text-[var(--og-heading)] ${full ? "text-[20px]" : "text-[16px]"}`}
+          >
+            {cursor.toLocaleString("en-IN", { month: "long" })}
+          </p>
+          <p className="og-tabular mt-1 text-[12px] font-medium leading-none text-[var(--og-text-muted)]">
+            {cursor.getFullYear()}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {/* Only when you have wandered off — a "Today" button on the month you
+              are already looking at is a button that does nothing. */}
+          {!showingToday && (
+            <button
+              type="button"
+              onClick={() => setCursor(new Date(todayYear, todayMonth, 1))}
+              className="og-press mr-1 rounded-[var(--og-r-pill)] bg-[var(--og-chip)] px-3 py-1.5 text-[12px] font-semibold text-[var(--og-primary)]"
+            >
+              Today
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="Previous month"
+            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+            className="og-press flex h-9 w-9 items-center justify-center rounded-full bg-[var(--og-surface-alt)] text-[var(--og-heading)]"
+          >
+            <Icon name="chevronLeft" size={17} weight={2.1} />
+          </button>
+          <button
+            type="button"
+            aria-label="Next month"
+            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+            className="og-press flex h-9 w-9 items-center justify-center rounded-full bg-[var(--og-surface-alt)] text-[var(--og-heading)]"
+          >
+            <Icon name="chevronRight" size={17} weight={2.1} />
+          </button>
+        </div>
       </div>
 
-      <div className={`mb-1 grid grid-cols-7 ${full ? "gap-1.5" : "gap-1"}`}>
+      <div className={`mb-1.5 grid grid-cols-7 ${full ? "gap-1.5" : "gap-1"}`}>
         {WEEKDAYS.map((w, i) => (
           <div
             key={i}
             aria-hidden="true"
-            className={`text-center font-semibold uppercase tracking-[0.08em] text-[var(--og-text-muted)] ${full ? "py-2 text-[12px]" : "py-1 text-[11px]"}`}
+            className={[
+              "text-center font-semibold uppercase tracking-[0.1em]",
+              // Sat and Sun dimmer still: the kitchen is shut, and the header
+              // saying so before you even reach the grid saves a second look.
+              i >= 5 ? "text-[color-mix(in_srgb,var(--og-text-muted)_50%,transparent)]" : "text-[var(--og-text-muted)]",
+              full ? "py-1.5 text-[11px]" : "py-1 text-[10.5px]",
+            ].join(" ")}
           >
             {w}
           </div>
@@ -313,40 +347,48 @@ export default function Calendar({
                 />
               )}
 
-              <span
-                className={[
-                  full ? "text-[16px]" : "text-[13.5px]",
-                  isToday && !selected ? "font-bold" : "font-medium",
-                  selected ? "" : t.text,
-                  // A struck numeral says "not happening" without needing a key.
-                  day.state === "skipped" && !selected ? "line-through decoration-[1.5px]" : "",
-                ].join(" ")}
-              >
-                {num}
-              </span>
+              {/* Numeral and mark stacked on one centre line, nudged up so the
+                  pair sits optically centred rather than the numeral alone. */}
+              <span className="flex flex-col items-center justify-center gap-[3px]">
+                <span
+                  className={[
+                    "og-tabular leading-none",
+                    full ? "text-[16px]" : "text-[13.5px]",
+                    isToday && !selected ? "font-bold" : "font-medium",
+                    selected ? "" : t.text,
+                    // A struck numeral says "not happening" without needing a key.
+                    day.state === "skipped" && !selected ? "line-through decoration-[1.5px]" : "",
+                  ].join(" ")}
+                >
+                  {num}
+                </span>
 
-              {/* A small corner badge rather than an icon stacked underneath.
-                  Underneath, it competed with the numeral for the middle of a
-                  40px box and made the whole grid feel cramped. */}
-              {!selected && t.badge && (
+                {/* Always rendered, even where there is no mark — an empty box
+                    of the same height keeps every numeral on the same baseline.
+                    Without it, a delivered day's numeral sat 4px higher than a
+                    closed one and the whole grid rippled. */}
                 <span
                   aria-hidden="true"
-                  className={`absolute ${full ? "bottom-1 right-1" : "bottom-0.5 right-0.5"}`}
-                >
-                  {t.badge(full)}
-                </span>
-              )}
+                  className={
+                    !selected && t.mark
+                      ? `block h-1.5 rounded-full ${t.wide ? "w-3.5" : "w-1.5"} ${t.mark}`
+                      : "block h-1.5 w-1.5"
+                  }
+                />
+              </span>
             </button>
           );
         })}
       </div>
 
-      <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-2.5 border-t border-[var(--og-border)] pt-4 text-[11.5px] text-[var(--og-text-muted)]">
+      {/* The key, as a quiet card rather than five items floating on the page.
+          It is reference material — it should be findable, not loud. */}
+      <ul className="mt-5 flex flex-wrap gap-x-3.5 gap-y-2.5 rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-3.5 py-3 text-[11.5px] text-[var(--og-text-muted)]">
         <Key state="scheduled" label="Coming" />
         <Key state="delivered" label="Delivered" />
         <Key state="skipped" label="Skipped" />
         <Key state="paused" label="Paused" />
-        <Key state="closed" label="Kitchen closed" />
+        <Key state="closed" label="Closed" />
       </ul>
     </div>
   );
@@ -359,11 +401,18 @@ function Key({ state, label }: { state: DayState; label: string }) {
     <li className="flex items-center gap-1.5">
       <span
         aria-hidden="true"
-        className={`flex h-4 w-4 items-center justify-center rounded-[5px] ${t.tile}`}
+        className={`flex h-[18px] w-[18px] flex-col items-center justify-center gap-[2px] rounded-[6px] ${t.tile}`}
       >
-        <span className={`text-[8px] font-bold ${t.text} ${state === "skipped" ? "line-through" : ""}`}>
+        <span
+          className={`text-[8px] font-bold leading-none ${t.text} ${state === "skipped" ? "line-through" : ""}`}
+        >
           {state === "closed" ? "" : "1"}
         </span>
+        {t.mark && (
+          <span
+            className={`block h-[3px] rounded-full ${t.wide ? "w-2.5" : "w-1"} ${t.mark}`}
+          />
+        )}
       </span>
       {label}
     </li>

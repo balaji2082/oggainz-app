@@ -65,7 +65,10 @@ export default function DaySheet({
 }: Props) {
   const [rating, setRating] = useState(false);
   const [messaging, setMessaging] = useState(false);
-  const [resuming, startResume] = useTransition();
+  // Own spinner, not the transition's — see MealActions for why. The refresh is
+  // reconciliation, and the customer must not be made to watch it.
+  const [resuming, setResuming] = useState(false);
+  const [, startTransition] = useTransition();
   const toast = useToast();
   const router = useRouter();
 
@@ -73,8 +76,9 @@ export default function DaySheet({
   const when = relativeDay(date, todayISO);
   const future = date >= todayISO;
 
-  function doResume() {
-    startResume(async () => {
+  async function doResume() {
+    setResuming(true);
+    try {
       const result = await resumeMeals(date, pack?.id);
       toast(result.message, result.ok ? "good" : "bad");
       if (!result.ok) return;
@@ -94,8 +98,10 @@ export default function DaySheet({
       if (result.data?.outcome === "applied") onResumed?.(date);
 
       onClose();
-      router.refresh();
-    });
+      startTransition(() => router.refresh());
+    } finally {
+      setResuming(false);
+    }
   }
 
   return (

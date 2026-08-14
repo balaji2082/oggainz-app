@@ -62,24 +62,47 @@ export default function MealActions({
   onConfirmed,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
-  const [pending, startTransition] = useTransition();
+  /**
+   * The button's own spinner, deliberately NOT `useTransition`'s pending flag.
+   *
+   * This is why skipping felt slow while undoing felt quick. `router.refresh()`
+   * used to be called INSIDE `startTransition`, which keeps `pending` true until
+   * the whole page has re-rendered on the server and streamed back — so the
+   * spinner outlived the thing it was reporting on by a second or more. The
+   * write had been confirmed; the customer was being made to watch a re-render.
+   *
+   * Undo felt faster for a real reason, not a random one: the Command Center's
+   * undo just re-marks a row that already exists, while a skip on a future day
+   * has to call `ensure_day_rows` first to generate the day. Same round trip,
+   * more work at the far end — so the same extra wait hurt it more.
+   */
+  const [busy, setBusy] = useState(false);
+  const [, startTransition] = useTransition();
   const toast = useToast();
   const router = useRouter();
 
-  function run(
+  async function run(
     action: () => Promise<{ ok: boolean; message: string }>,
     becomes: "skipped" | "scheduled"
   ) {
-    startTransition(async () => {
+    setBusy(true);
+    try {
       const result = await action();
       if (result.ok) onConfirmed?.(becomes);
       toast(result.message, result.ok ? "good" : "bad");
       setConfirming(false);
-      // Re-read rather than patch. The server may have applied something
-      // slightly different from what was asked (docs/03 §5.3), and the only
-      // way to be sure the screen is right is to ask it again.
-      if (result.ok) router.refresh();
-    });
+      if (!result.ok) return;
+
+      // The spinner stops HERE — the server has confirmed, which is the only
+      // moment docs/03 §6 cares about. The re-read still happens, because the
+      // server may have applied something slightly different from what was
+      // asked (docs/03 §5.3), but it happens QUIETLY: `onConfirmed` has already
+      // painted the confirmed answer, so there is nothing for the customer to
+      // wait for while the page reconciles behind them.
+      startTransition(() => router.refresh());
+    } finally {
+      setBusy(false);
+    }
   }
 
   // --- already skipped: offer the way back ---------------------------------
@@ -114,7 +137,7 @@ export default function MealActions({
           <Button
             variant={onHero ? "hero" : "secondary"}
             full
-            busy={pending}
+            busy={busy}
             onClick={() => run(() => undoSkip(date, subscriptionId), "scheduled")}
           >
             Undo skip
@@ -194,7 +217,7 @@ export default function MealActions({
             </Button>
             <Button
               full
-              busy={pending}
+              busy={busy}
               onClick={() => run(() => skipMeal(date, subscriptionId), "skipped")}
             >
               Yes, skip it

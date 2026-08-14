@@ -336,13 +336,66 @@ export async function fromCache(
  * took several seconds: the action returned, the page re-rendered, and only
  * THEN did the slow fetch happen, with the customer watching.
  */
-export async function refreshCustomer(customerId: string): Promise<CustomerData> {
-  const fresh = await fetchAll(customerId);
-  await sql()`
-    INSERT INTO customer_profiles (customer_id, payload, synced_at)
-    VALUES (${customerId}, ${JSON.stringify(fresh)}::jsonb, now())
-    ON CONFLICT (customer_id) DO UPDATE
-      SET payload = EXCLUDED.payload, synced_at = now()
-  `;
-  return { ...fresh, stale: false, asOf: null };
+/**
+ * Refreshes already running or just finished, so one skip cannot become twelve
+ * calls to a single free worker.
+ *
+ * This is what made skipping feel slow again. A skip fired a background refresh
+ * (six Command Center calls), returned, and the page then re-rendered — which
+ * found the cache marked dirty and fired a SECOND background refresh, six more.
+ * Neither blocked the response, so neither showed up as the skip being slow;
+ * they showed up as the NEXT thing the customer did being slow, because
+ * PythonAnywhere's free tier is one worker and it was still working through the
+ * queue.
+ *
+ * `inFlight` collapses concurrent refreshes onto one promise. `lastDone` stops
+ * a refresh that just finished from being immediately repeated — the data
+ * cannot have changed in three seconds, and the only thing that could have
+ * changed it is us.
+ */
+const inFlight = new Map<string, Promise<CustomerData>>();
+const lastDone = new Map<string, { at: number; value: CustomerData }>();
+const REFRESH_COOLDOWN_MS = 3000;
+
+/**
+ * @param force  Set ONLY on the refresh that follows a write.
+ *
+ * Both shortcuts above are wrong after a skip, and dangerously so. Joining a
+ * fetch that STARTED BEFORE the write would store a payload that predates it,
+ * and the cooldown would skip the refresh entirely — either way the cache would
+ * be left claiming the meal is still on. A write must always produce a fetch
+ * that begins after it.
+ */
+export function refreshCustomer(
+  customerId: string,
+  { force = false }: { force?: boolean } = {}
+): Promise<CustomerData> {
+  if (!force) {
+    const running = inFlight.get(customerId);
+    if (running) return running;
+
+    const done = lastDone.get(customerId);
+    if (done && Date.now() - done.at < REFRESH_COOLDOWN_MS) {
+      return Promise.resolve(done.value);
+    }
+  }
+
+  const task = (async () => {
+    const fresh = await fetchAll(customerId);
+    await sql()`
+      INSERT INTO customer_profiles (customer_id, payload, synced_at)
+      VALUES (${customerId}, ${JSON.stringify(fresh)}::jsonb, now())
+      ON CONFLICT (customer_id) DO UPDATE
+        SET payload = EXCLUDED.payload, synced_at = now()
+    `;
+    const value: CustomerData = { ...fresh, stale: false, asOf: null };
+    if (lastDone.size > 200) lastDone.clear();
+    lastDone.set(customerId, { at: Date.now(), value });
+    return value;
+  })();
+
+  inFlight.set(customerId, task);
+  // Cleared whether it worked or not: a failure must not block the retry.
+  task.finally(() => inFlight.delete(customerId)).catch(() => {});
+  return task;
 }

@@ -10,7 +10,12 @@ import {
   todayISO,
 } from "./snapshot";
 import type { Meal } from "./types";
-import { deadlines as fetchDeadlines, type Deadline } from "./writes";
+import {
+  deadlines as fetchDeadlines,
+  myRequests,
+  type Deadline,
+  type SkipRequest,
+} from "./writes";
 
 /**
  * One door to the customer's data, whichever side it comes from.
@@ -140,4 +145,40 @@ export function getDeadlines(
   if (DEADLINE_MEMO.size > 50) DEADLINE_MEMO.clear();
   DEADLINE_MEMO.set(key, { at: Date.now(), value });
   return value;
+}
+
+/**
+ * A customer's own pending requests, held briefly.
+ *
+ * The last uncached Command Center call on the calendar screen — and the one
+ * that fired again on every `router.refresh()` after a skip, which is exactly
+ * the moment the worker is busiest. Requests change only when the customer acts
+ * or Balaji decides, so a few seconds costs nothing; a skip that queues one
+ * clears this itself via `forgetRequests`.
+ *
+ * Failure is swallowed for the same reason as deadlines: a missing "waiting on
+ * us" badge must never take the calendar down.
+ */
+const REQUEST_MEMO = new Map<string, { at: number; value: Promise<SkipRequest[]> }>();
+const REQUEST_MS = 15_000;
+
+export function getMyRequests(customerId: string): Promise<SkipRequest[]> {
+  if (!liveAvailable()) return Promise.resolve([]);
+
+  const hit = REQUEST_MEMO.get(customerId);
+  if (hit && Date.now() - hit.at < REQUEST_MS) return hit.value;
+
+  const value = myRequests(customerId).catch(() => {
+    REQUEST_MEMO.delete(customerId);
+    return [] as SkipRequest[];
+  });
+
+  if (REQUEST_MEMO.size > 200) REQUEST_MEMO.clear();
+  REQUEST_MEMO.set(customerId, { at: Date.now(), value });
+  return value;
+}
+
+/** Drop a customer's cached requests after they act. */
+export function forgetRequests(customerId: string) {
+  REQUEST_MEMO.delete(customerId);
 }

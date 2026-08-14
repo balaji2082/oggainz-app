@@ -49,7 +49,9 @@ export default function CalendarScreen({
   const [openDate, setOpenDate] = useState<string | null>(null);
   const [pausing, setPausing] = useState(false);
   const [range, setRange] = useState<[string | null, string | null]>([null, null]);
-  const [pending, startTransition] = useTransition();
+  // Own spinner, not the transition's — see MealActions for why.
+  const [saving, setSaving] = useState(false);
+  const [, startTransition] = useTransition();
 
   /**
    * Days the SERVER has just confirmed, held locally until the refetch lands.
@@ -232,9 +234,10 @@ export default function CalendarScreen({
     });
   }
 
-  function confirmPause() {
+  async function confirmPause() {
     if (!start || !end || !pack) return;
-    startTransition(async () => {
+    setSaving(true);
+    try {
       const result = await pauseMeals(start, end, pack.id);
       toast(result.message, result.ok ? "good" : "bad");
       if (result.ok) {
@@ -262,9 +265,11 @@ export default function CalendarScreen({
         });
         setPausing(false);
         setRange([null, null]);
-        router.refresh();
+        startTransition(() => router.refresh());
       }
-    });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -344,7 +349,7 @@ export default function CalendarScreen({
         }
         footer={
           start && end ? (
-            <Button full busy={pending} onClick={confirmPause}>
+            <Button full busy={saving} onClick={confirmPause}>
               Confirm pause
             </Button>
           ) : undefined

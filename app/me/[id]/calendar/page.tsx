@@ -4,9 +4,8 @@ import CalendarScreen from "@/components/CalendarScreen";
 import { PageHead } from "@/components/Bits";
 import StaleNotice from "@/components/StaleNotice";
 import { addDays } from "@/lib/format";
-import { getDeadlines, todayISO } from "@/lib/data";
+import { getDeadlines, getMyRequests, todayISO } from "@/lib/data";
 import { loadScreen } from "@/lib/screen";
-import { myRequests } from "@/lib/writes";
 
 /**
  * The month, and the two things a customer actually does here — skip a day,
@@ -47,7 +46,7 @@ export default async function Calendar({
     await Promise.all([
       loadScreen(id, [from, to]),
       getDeadlines(id, today, dlTo),
-      myRequests(id).catch(() => []),
+      getMyRequests(id),
     ]);
   if (!data.customer) notFound();
 
