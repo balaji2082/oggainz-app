@@ -53,7 +53,7 @@ export default async function JoinError({
   return (
     <main className="flex min-h-svh items-center justify-center px-5 py-10">
       <div className="w-full max-w-[380px]">
-        <h1 className="mb-2 font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
+        <h1 className="mb-2 font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-heading)]">
           {title}
         </h1>
         <p className="text-[14px] leading-6 text-[var(--og-text-muted)]">{body}</p>

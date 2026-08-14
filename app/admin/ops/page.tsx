@@ -54,7 +54,7 @@ export default async function Ops() {
   return (
     <main className="mx-auto w-full max-w-[560px] px-5 py-10 pb-24">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-[24px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
+        <h1 className="font-display text-[24px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-heading)]">
           Ops
         </h1>
         <Link href="/admin" className="text-[13px] font-semibold text-[var(--og-text-muted)]">

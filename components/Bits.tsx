@@ -2,6 +2,79 @@
  * The small pieces. Server components — none of them need state.
  */
 
+import Icon, { type IconName } from "./ui/Icon";
+
+// --- page chrome -------------------------------------------------------------
+
+/**
+ * Every screen opens the same way: an icon chip, a title, a line of plain
+ * English underneath.
+ *
+ * It was four near-identical blocks of markup with four slightly different type
+ * sizes — 22px here, 23px there, one with `mb-5` and one with `mb-6`. Nobody
+ * notices any single one of those, and everybody notices the result, which is a
+ * set of screens that feel like they were built at different times.
+ */
+export function PageHead({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: IconName;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="mb-6 flex items-center gap-3.5">
+      <span
+        aria-hidden="true"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--og-r-md)] bg-[var(--og-chip)] text-[var(--og-primary)] ring-1 ring-[var(--og-chip-line)]"
+      >
+        <Icon name={icon} size={21} weight={1.9} />
+      </span>
+      <div className="min-w-0">
+        <h1 className="font-display text-[21px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-heading)]">
+          {title}
+        </h1>
+        {subtitle && (
+          <p className="mt-0.5 text-[13.5px] leading-5 text-[var(--og-text-muted)]">
+            {subtitle}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- loading -----------------------------------------------------------------
+
+/**
+ * The shape of what is coming, not a spinner.
+ *
+ * A spinner says "wait"; a skeleton says "your calendar is arriving, and this
+ * is where it will be". On a screen that takes a second or two over mobile data
+ * that difference is most of what the wait feels like.
+ */
+export function Bone({
+  h = 16,
+  w = "100%",
+  r = "var(--og-r-sm)",
+  className = "",
+}: {
+  h?: number;
+  w?: number | string;
+  r?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`og-skeleton ${className}`}
+      style={{ height: h, width: w, borderRadius: r }}
+    />
+  );
+}
+
 // --- status ------------------------------------------------------------------
 
 type Tone = "neutral" | "good" | "warn" | "info" | "quiet";
@@ -10,7 +83,7 @@ const TONES: Record<Tone, string> = {
   neutral: "bg-[var(--og-surface-alt)] text-[var(--og-text-muted)]",
   good: "bg-[color-mix(in_srgb,var(--og-green)_14%,transparent)] text-[var(--og-on-green)]",
   warn: "bg-[color-mix(in_srgb,var(--og-orange)_16%,transparent)] text-[var(--og-on-orange)]",
-  info: "bg-[color-mix(in_srgb,var(--og-forest)_10%,transparent)] text-[var(--og-forest)]",
+  info: "bg-[color-mix(in_srgb,var(--og-forest)_10%,transparent)] text-[var(--og-heading)]",
   quiet: "bg-transparent text-[var(--og-text-muted)] ring-1 ring-[var(--og-border)]",
 };
 
@@ -74,7 +147,7 @@ export function ProgressRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="og-tabular font-display text-[16px] font-bold leading-none text-[var(--og-forest)]">
+        <span className="og-tabular font-display text-[16px] font-bold leading-none text-[var(--og-heading)]">
           {Math.max(total - done, 0)}
         </span>
         {label && (
@@ -187,7 +260,7 @@ export function Empty({
   return (
     <div className="rounded-[var(--og-r-lg)] border border-dashed border-[var(--og-border)] px-5 py-10 text-center">
       {icon && <div className="mb-3 flex justify-center text-[var(--og-border)]">{icon}</div>}
-      <p className="font-display text-[15px] font-semibold text-[var(--og-forest)]">{title}</p>
+      <p className="font-display text-[15px] font-semibold text-[var(--og-heading)]">{title}</p>
       {body && (
         <p className="mx-auto mt-1.5 max-w-[38ch] text-[13px] leading-5 text-[var(--og-text-muted)]">
           {body}

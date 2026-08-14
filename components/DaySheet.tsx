@@ -31,6 +31,14 @@ interface Props {
   /** A state the server has just confirmed, ahead of the payload catching up. */
   confirmedState?: DayState;
   onConfirmed?: (date: string, state: DayState) => void;
+  /**
+   * The server has APPLIED a resume from this date.
+   *
+   * Separate from `onConfirmed` because a resume is never one day: the engine
+   * clears every freeze from that date onward (core.resume_subscription), so
+   * the calendar has a whole stretch to repaint, not a cell.
+   */
+  onResumed?: (fromDate: string) => void;
 }
 
 const TAG_LABEL: Record<string, string> = {
@@ -53,6 +61,7 @@ export default function DaySheet({
   pendingRequest,
   confirmedState,
   onConfirmed,
+  onResumed,
 }: Props) {
   const [rating, setRating] = useState(false);
   const [messaging, setMessaging] = useState(false);
@@ -68,10 +77,24 @@ export default function DaySheet({
     startResume(async () => {
       const result = await resumeMeals(date, pack?.id);
       toast(result.message, result.ok ? "good" : "bad");
-      if (result.ok) {
-        onClose();
-        router.refresh();
-      }
+      if (!result.ok) return;
+
+      // Tell the calendar the stretch is over BEFORE closing.
+      //
+      // Without this the toast said "meals restart on Tuesday" while every
+      // paused day kept its pips until a manual reload — the write had landed,
+      // but the screen was still drawing the pre-resume payload. `router.refresh()`
+      // alone cannot fix it: the cached copy is refreshed AFTER the response is
+      // sent (app/actions/meals.ts: resync), so the re-render that follows still
+      // holds the old freeze.
+      //
+      // Only when the server APPLIED it. A late resume comes back as `requested`
+      // and nothing has changed yet — repainting that would be the app claiming
+      // a decision Balaji has not made (docs/03 §6).
+      if (result.data?.outcome === "applied") onResumed?.(date);
+
+      onClose();
+      router.refresh();
     });
   }
 
@@ -81,7 +104,7 @@ export default function DaySheet({
         {/* Waiting on Balaji. */}
         {pendingRequest && (
           <div className="mb-4 rounded-[var(--og-r-md)] bg-[color-mix(in_srgb,var(--og-orange)_10%,transparent)] p-4">
-            <p className="text-[13.5px] font-semibold text-[var(--og-forest)]">
+            <p className="text-[13.5px] font-semibold text-[var(--og-heading)]">
               We&apos;ve passed this on
             </p>
             <p className="mt-1 text-[12.5px] leading-5 text-[var(--og-text-muted)]">
@@ -125,7 +148,7 @@ export default function DaySheet({
           <div>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="font-display text-[15px] font-semibold text-[var(--og-forest)]">
+                <p className="font-display text-[15px] font-semibold text-[var(--og-heading)]">
                   {meal.planName ?? pack?.planName ?? "Your meal"}
                 </p>
                 <p className="text-[12.5px] text-[var(--og-text-muted)]">{meal.slot}</p>
@@ -173,7 +196,7 @@ export default function DaySheet({
                     <button
                       type="button"
                       onClick={() => setRating(true)}
-                      className="og-press mt-2.5 text-[12.5px] font-semibold text-[var(--og-forest)] underline underline-offset-2"
+                      className="og-press mt-2.5 text-[12.5px] font-semibold text-[var(--og-heading)] underline underline-offset-2"
                     >
                       Edit
                     </button>

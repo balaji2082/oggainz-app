@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { Empty, Pill, ProgressRing, SectionTitle } from "@/components/Bits";
+import { Empty, PageHead, Pill, ProgressRing, SectionTitle } from "@/components/Bits";
 import DeliveryHistory from "@/components/DeliveryHistory";
-import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
 import { componentLabel, longDate, rupees, shortDate } from "@/lib/format";
 import { todayISO } from "@/lib/data";
@@ -22,7 +21,7 @@ export default async function MyPack({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { data, avatar, unread } = await loadScreen(id);
+  const { data } = await loadScreen(id);
   if (!data.customer) notFound();
   const packs = data.packs;
   const live = packs.filter(
@@ -32,14 +31,13 @@ export default async function MyPack({
   const invoices = data.invoices;
 
   return (
-    <Shell customerId={id} active="pack" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>
+    <>
       <StaleNotice asOf={data.asOf} />
-      <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
-        {live.length === 1 ? "Your pack" : "Your packs"}
-      </p>
-      <p className="mb-6 mt-1 text-[14px] text-[var(--og-text-muted)]">
-        What&rsquo;s in every meal, and how many you have left.
-      </p>
+      <PageHead
+        icon="pack"
+        title={live.length === 1 ? "Your pack" : "Your packs"}
+        subtitle="What's in every meal, and how many you have left."
+      />
 
       {live.length === 0 && (
         <Empty title="No active pack right now" body="Message us when you're ready to start." />
@@ -107,7 +105,7 @@ export default async function MyPack({
           </ul>
         </section>
       )}
-    </Shell>
+    </>
   );
 }
 
@@ -124,7 +122,7 @@ function PackDetail({ pack }: { pack: Pack }) {
           <ProgressRing done={pack.delivered} total={pack.mealsTotal} size={72} label="left" />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="font-display text-[17px] font-semibold leading-tight tracking-[-0.01em] text-[var(--og-forest)]">
+              <p className="font-display text-[17px] font-semibold leading-tight tracking-[-0.01em] text-[var(--og-heading)]">
                 {pack.planName}
               </p>
               {pack.pausedToday ? (
@@ -143,7 +141,7 @@ function PackDetail({ pack }: { pack: Pack }) {
               {pack.startDate ? ` · from ${shortDate(pack.startDate)}` : ""}
             </p>
             <p className="mt-2.5 text-[13px] text-[var(--og-text)]">
-              <span className="font-display font-bold text-[var(--og-forest)]">
+              <span className="font-display font-bold text-[var(--og-heading)]">
                 {pack.remaining}
               </span>{" "}
               of {pack.mealsTotal} meals left

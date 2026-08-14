@@ -203,7 +203,7 @@ export default function MealActions({
         }
       >
         <div className="rounded-[var(--og-r-md)] bg-[color-mix(in_srgb,var(--og-green)_9%,transparent)] p-4">
-          <p className="text-[14px] font-semibold text-[var(--og-forest)]">
+          <p className="text-[14px] font-semibold text-[var(--og-heading)]">
             You don&apos;t lose the meal.
           </p>
           <p className="mt-1 text-[13px] leading-5 text-[var(--og-text-muted)]">

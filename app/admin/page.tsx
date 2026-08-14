@@ -159,7 +159,7 @@ export default async function Admin({
   return (
     <main className="mx-auto w-full max-w-[560px] px-5 py-10">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
+        <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-heading)]">
           Invite a customer
         </h1>
         <a href="/admin/ops" className="text-[13px] font-semibold text-[var(--og-text-muted)]">
@@ -192,7 +192,7 @@ export default async function Admin({
 
       {result?.ok && result.link && (
         <section className="mt-5 rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)] p-5">
-          <p className="font-display text-[16px] font-semibold text-[var(--og-forest)]">
+          <p className="font-display text-[16px] font-semibold text-[var(--og-heading)]">
             Link for {result.name}
           </p>
           <p className="mt-1 text-[12.5px] text-[var(--og-text-muted)]">

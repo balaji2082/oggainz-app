@@ -57,7 +57,7 @@ export default async function Home() {
           priority
         />
         <div>
-          <p className="font-display text-[21px] font-bold leading-tight tracking-tight text-[var(--og-forest)]">
+          <p className="font-display text-[21px] font-bold leading-tight tracking-tight text-[var(--og-heading)]">
             OG Gainz
           </p>
           <p className="text-[12.5px] text-[var(--og-text-muted)]">
@@ -67,7 +67,7 @@ export default async function Home() {
       </header>
 
       <section className="mt-10">
-        <h1 className="font-display text-[27px] font-semibold leading-[1.2] tracking-tight text-[var(--og-forest)]">
+        <h1 className="font-display text-[27px] font-semibold leading-[1.2] tracking-tight text-[var(--og-heading)]">
           Real food, weighed and cooked for your goals.
         </h1>
         <p className="mt-3 text-[15px] leading-6 text-[var(--og-text-muted)]">
@@ -99,7 +99,7 @@ export default async function Home() {
               className="rounded-[var(--radius-og)] border border-[var(--og-border)] bg-[var(--og-surface)] px-5 py-4"
             >
               <div className="flex items-baseline gap-2">
-                <h3 className="font-display text-[16px] font-semibold text-[var(--og-forest)]">
+                <h3 className="font-display text-[16px] font-semibold text-[var(--og-heading)]">
                   {p.name}
                 </h3>
                 <span className="text-[12px] font-medium text-[var(--og-text-muted)]">

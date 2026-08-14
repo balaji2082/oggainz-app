@@ -67,7 +67,7 @@ function Frame({ title, children }: { title: string; children: React.ReactNode }
   return (
     <main className="flex min-h-svh items-center justify-center px-5 py-10">
       <div className="w-full max-w-[380px]">
-        <h1 className="mb-2 font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
+        <h1 className="mb-2 font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-heading)]">
           {title}
         </h1>
         {children}
@@ -94,7 +94,7 @@ function Help() {
       Signed in with a different Google account, or stuck?{" "}
       <a
         href="https://wa.me/919361798644"
-        className="font-semibold text-[var(--og-forest)] underline"
+        className="font-semibold text-[var(--og-heading)] underline"
       >
         Message us
       </a>{" "}

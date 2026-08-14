@@ -41,6 +41,23 @@
   --og-border: var(--og-mist);
   --og-danger: var(--og-red);
 
+  /* Headings were hard-coded to forest everywhere, which is correct on cream
+     and nearly invisible on near-black. One token, so a title is never lost. */
+  --og-heading: var(--og-forest);
+
+  /* The icon chip behind a page title or a settings row. A tint of the primary
+     rather than a grey, so it belongs to the brand instead of the interface. */
+  --og-chip: color-mix(in srgb, var(--og-forest) 8%, transparent);
+  --og-chip-line: color-mix(in srgb, var(--og-forest) 12%, transparent);
+
+  /* The floating tab dock. Translucent so the content scrolls visibly beneath
+     it — that glimpse of movement is what makes it read as a layer above the
+     page rather than a strip the page ends at. */
+  --og-dock: color-mix(in srgb, var(--og-white) 82%, transparent);
+  --og-dock-line: color-mix(in srgb, var(--og-forest) 9%, transparent);
+  --og-dock-on: color-mix(in srgb, var(--og-forest) 8%, transparent);
+  --og-dock-ring: var(--og-white);
+
   --og-gradient-brand: linear-gradient(135deg, var(--og-forest) 0%, var(--og-green) 100%);
 
   --og-shadow-sm: 0 1px 2px rgba(0, 64, 48, 0.08);
@@ -284,8 +301,12 @@ h1, h2, h3, .font-display {
    keeping, because it means a whole visual direction is a palette swap here
    rather than a rewrite across forty files.
 
-   Balaji picks between these on his phone (Profile → Look). Nothing below
-   changes a single component.
+   TWO themes, and a CUSTOMER chooses between them (Profile → App settings →
+   Background). DARK IS THE DEFAULT: the blocking script in layout.tsx stamps
+   `data-theme` before first paint, so `:root` above is the LIGHT palette and
+   everything under [data-theme="dark"] is the one most people will actually
+   see. A third direction (Playful) lived here while Balaji was choosing and
+   came out once he had.
    =========================================================================== */
 
 /* --- DARK / PREMIUM -------------------------------------------------------
@@ -311,6 +332,21 @@ h1, h2, h3, .font-display {
   --og-on-primary: #07120e;
   --og-on-green: #7fd79b;
   --og-on-orange: #f5a976;
+
+  /* Forest headings vanish on near-black — near-white with a green cast keeps
+     the family resemblance without the disappearing act. */
+  --og-heading: #e8f2ea;
+
+  --og-chip: color-mix(in srgb, var(--og-lime) 12%, transparent);
+  --og-chip-line: color-mix(in srgb, var(--og-lime) 16%, transparent);
+
+  /* Lifted, not darkened: on a dark ground the dock has to be LIGHTER than the
+     page to read as floating above it. A darker bar would just look like the
+     screen ending. */
+  --og-dock: color-mix(in srgb, #16241e 88%, transparent);
+  --og-dock-line: rgba(255, 255, 255, 0.07);
+  --og-dock-on: color-mix(in srgb, var(--og-lime) 13%, transparent);
+  --og-dock-ring: #16241e;
 
   /* On dark, the "hero" is the one place that goes LIGHTER, not darker —
      inverting the usual relationship is what makes it read as raised. */
@@ -339,39 +375,6 @@ h1, h2, h3, .font-display {
   background-size: 220% 100%;
 }
 
-/* --- PLAYFUL --------------------------------------------------------------
-   The Swiggy/Zomato register: warm ground, softer and rounder, colour used
-   freely and confidently rather than reserved for meaning. Deliberately the
-   opposite trade to dark — this one is friendly first and calm second.
-   -------------------------------------------------------------------------- */
-:root[data-theme="playful"] {
-  --og-bg: #fff8ee;
-  --og-surface: #ffffff;
-  --og-surface-alt: #fff1dd;
-  --og-text: #22201c;
-  --og-text-muted: #8a7c6c;
-  --og-border: #f2e2cc;
-
-  --og-r-sm: 16px;
-  --og-r-md: 22px;
-  --og-r-lg: 30px;
-  --og-r-xl: 38px;
-
-  --og-hero:
-    radial-gradient(85% 75% at 85% 0%, rgba(233, 118, 43, 0.30) 0%, transparent 62%),
-    linear-gradient(150deg, #178a49 0%, #0c6b3c 60%, #064f2c 100%);
-
-  /* Warmer and more generous — a friendly interface casts a softer, wider
-     shadow, which is most of why it reads as approachable. */
-  --og-e1: 0 2px 4px rgba(120, 72, 20, 0.06);
-  --og-e2: 0 4px 10px rgba(120, 72, 20, 0.09);
-  --og-e3: 0 10px 26px rgba(120, 72, 20, 0.13);
-  --og-e4: 0 20px 50px rgba(120, 72, 20, 0.18);
-
-  --og-gradient-brand: linear-gradient(135deg, var(--og-green) 0%, var(--og-lime) 100%);
-}
-
 /* No flash of the wrong theme: the inline script in layout.tsx sets data-theme
    before first paint, and this keeps the ground colour honest meanwhile. */
 :root[data-theme="dark"] body { background: #070f0c; }
-:root[data-theme="playful"] body { background: #fff8ee; }

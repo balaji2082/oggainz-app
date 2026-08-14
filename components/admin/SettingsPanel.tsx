@@ -45,7 +45,7 @@ function CutoffCard({ cutoff }: { cutoff: string }) {
 
   return (
     <div className="rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] p-4 shadow-[var(--og-e1)]">
-      <p className="font-display text-[14.5px] font-semibold text-[var(--og-forest)]">
+      <p className="font-display text-[14.5px] font-semibold text-[var(--og-heading)]">
         Skip deadline
       </p>
       <p className="mt-1 text-[12.5px] leading-5 text-[var(--og-text-muted)]">
@@ -88,7 +88,7 @@ function ValidityCard({ enabled, rows }: { enabled: boolean; rows: ValidityRow[]
     <div className="rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] p-4 shadow-[var(--og-e1)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-display text-[14.5px] font-semibold text-[var(--og-forest)]">
+          <p className="font-display text-[14.5px] font-semibold text-[var(--og-heading)]">
             Pack validity
           </p>
           <p className="mt-1 text-[12.5px] leading-5 text-[var(--og-text-muted)]">
@@ -130,7 +130,7 @@ function ValidityCard({ enabled, rows }: { enabled: boolean; rows: ValidityRow[]
       )}
 
       <details className="mt-4 border-t border-[var(--og-border)] pt-3">
-        <summary className="cursor-pointer text-[12.5px] font-semibold text-[var(--og-forest)]">
+        <summary className="cursor-pointer text-[12.5px] font-semibold text-[var(--og-heading)]">
           Set for one customer
         </summary>
         <PackEditor rows={rows} />

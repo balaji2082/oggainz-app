@@ -220,7 +220,7 @@ export default function Calendar({
           type="button"
           aria-label="Previous month"
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-          className="og-press flex h-10 w-10 items-center justify-center rounded-full text-[var(--og-forest)] hover:bg-[var(--og-surface-alt)]"
+          className="og-press flex h-10 w-10 items-center justify-center rounded-full text-[var(--og-heading)] hover:bg-[var(--og-surface-alt)]"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -229,7 +229,7 @@ export default function Calendar({
         </button>
         <p
           aria-live="polite"
-          className={`font-display font-semibold tracking-[-0.01em] text-[var(--og-forest)] ${full ? "text-[18px]" : "text-[15.5px]"}`}
+          className={`font-display font-semibold tracking-[-0.01em] text-[var(--og-heading)] ${full ? "text-[18px]" : "text-[15.5px]"}`}
         >
           {monthLabel}
         </p>
@@ -237,7 +237,7 @@ export default function Calendar({
           type="button"
           aria-label="Next month"
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-          className="og-press flex h-10 w-10 items-center justify-center rounded-full text-[var(--og-forest)] hover:bg-[var(--og-surface-alt)]"
+          className="og-press flex h-10 w-10 items-center justify-center rounded-full text-[var(--og-heading)] hover:bg-[var(--og-surface-alt)]"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -295,7 +295,7 @@ export default function Calendar({
                 selected
                   ? isEdge
                     ? `text-white shadow-[var(--og-e2)] ${roundedEdge}`
-                    : "bg-[color-mix(in_srgb,var(--og-green)_16%,transparent)] text-[var(--og-forest)]"
+                    : "bg-[color-mix(in_srgb,var(--og-green)_16%,transparent)] text-[var(--og-heading)]"
                   : `rounded-[var(--og-r-md)] ${t.tile}`,
                 disabled ? "cursor-default opacity-70" : "",
                 !selected && !disabled && day.state !== "closed"

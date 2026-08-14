@@ -94,7 +94,7 @@ export default function SupportSheet({ open, onClose, prefill }: Props) {
       )}
 
       {prefill && (
-        <div className="mb-4 rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-3.5 py-2.5 text-[13px] font-medium text-[var(--og-forest)]">
+        <div className="mb-4 rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-3.5 py-2.5 text-[13px] font-medium text-[var(--og-heading)]">
           {prefill.subject}
         </div>
       )}

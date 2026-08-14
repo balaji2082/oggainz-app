@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 
+import { PageHead, SectionTitle } from "@/components/Bits";
 import ProfileScreen from "@/components/ProfileScreen";
 import ThemeSwitch from "@/components/ThemeSwitch";
-import Shell from "@/components/Shell";
+import Icon from "@/components/ui/Icon";
 import StaleNotice from "@/components/StaleNotice";
 import { loadScreen } from "@/lib/screen";
 
@@ -20,26 +21,15 @@ export default async function Account({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { data, avatar, unread } = await loadScreen(id);
+  const { data, avatar } = await loadScreen(id);
   if (!data.customer) notFound();
   const customer = data.customer;
   const settings = data.settings;
 
   return (
-    <Shell
-      customerId={id}
-      active="account"
-      supportUnread={unread > 0}
-      avatar={avatar}
-      name={customer.name}
-    >
+    <>
       <StaleNotice asOf={data.asOf} />
-      <p className="font-display text-[22px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
-        Profile
-      </p>
-      <p className="mb-6 mt-1 text-[14px] text-[var(--og-text-muted)]">
-        Your details, kept in check by us.
-      </p>
+      <PageHead icon="user" title="Profile" subtitle="Your details, kept in check by us." />
 
       <ProfileScreen
         name={customer.name}
@@ -62,20 +52,27 @@ export default async function Account({
         ]}
       />
 
-      <ThemeSwitch />
+      <section className="mb-6">
+        <SectionTitle>App settings</SectionTitle>
+        <ThemeSwitch />
+      </section>
 
       <section className="mb-6">
-        <h2 className="mb-3 font-display text-[12.5px] font-semibold uppercase tracking-[0.13em] text-[var(--og-text-muted)]">
-          Delivery times
-        </h2>
+        <SectionTitle>Delivery times</SectionTitle>
         <div className="overflow-hidden rounded-[var(--og-r-lg)] border border-[var(--og-border)] bg-[var(--og-surface)] shadow-[var(--og-e1)]">
           <div className="flex items-center gap-3 px-4 py-3.5">
-            <span className="w-16 shrink-0 text-[12.5px] text-[var(--og-text-muted)]">Lunch</span>
-            <span className="text-[14px] text-[var(--og-text)]">{settings.lunchWindow}</span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--og-chip)] text-[var(--og-primary)]">
+              <Icon name="sun" size={15} />
+            </span>
+            <span className="w-14 shrink-0 text-[12.5px] text-[var(--og-text-muted)]">Lunch</span>
+            <span className="og-tabular text-[14px] text-[var(--og-text)]">{settings.lunchWindow}</span>
           </div>
           <div className="flex items-center gap-3 border-t border-[var(--og-border)] px-4 py-3.5">
-            <span className="w-16 shrink-0 text-[12.5px] text-[var(--og-text-muted)]">Dinner</span>
-            <span className="text-[14px] text-[var(--og-text)]">{settings.dinnerWindow}</span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--og-chip)] text-[var(--og-primary)]">
+              <Icon name="moon" size={15} />
+            </span>
+            <span className="w-14 shrink-0 text-[12.5px] text-[var(--og-text-muted)]">Dinner</span>
+            <span className="og-tabular text-[14px] text-[var(--og-text)]">{settings.dinnerWindow}</span>
           </div>
           <p className="border-t border-[var(--og-border)] px-4 py-3 text-[12px] leading-5 text-[var(--og-text-muted)]">
             We aim for these windows. Traffic can occasionally delay a drop —
@@ -87,11 +84,12 @@ export default async function Account({
       <section className="pb-4">
         <a
           href="/api/auth/logout"
-          className="og-press flex w-full items-center justify-center rounded-[var(--og-r-md)] px-5 py-3.5 text-[13.5px] font-semibold text-[var(--og-text-muted)]"
+          className="og-press flex w-full items-center justify-center gap-2 rounded-[var(--og-r-md)] px-5 py-3.5 text-[13.5px] font-semibold text-[var(--og-text-muted)]"
         >
+          <Icon name="logout" size={16} />
           Sign out
         </a>
       </section>
-    </Shell>
+    </>
   );
 }

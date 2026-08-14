@@ -91,7 +91,7 @@ function Thread({ ticket }: { ticket: Ticket }) {
       <ul className="max-h-48 space-y-2 overflow-y-auto">
         {(ticket.messages ?? []).map((m) => (
           <li key={m.id} className="text-[12.5px]">
-            <span className="font-semibold text-[var(--og-forest)]">
+            <span className="font-semibold text-[var(--og-heading)]">
               {m.author === "owner" ? "You: " : "Them: "}
             </span>
             {m.body}

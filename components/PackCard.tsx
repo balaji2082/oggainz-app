@@ -23,7 +23,7 @@ export default function PackCard({ pack, customerId }: { pack: Pack; customerId:
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-display text-[16px] font-semibold leading-tight tracking-[-0.01em] text-[var(--og-forest)]">
+            <h3 className="font-display text-[16px] font-semibold leading-tight tracking-[-0.01em] text-[var(--og-heading)]">
               {pack.planName}
             </h3>
             {pack.pausedToday ? (
@@ -44,7 +44,7 @@ export default function PackCard({ pack, customerId }: { pack: Pack; customerId:
           </p>
 
           <p className="mt-2 text-[13px] text-[var(--og-text)]">
-            <span className="font-display font-bold text-[var(--og-forest)]">
+            <span className="font-display font-bold text-[var(--og-heading)]">
               {pack.remaining}
             </span>{" "}
             meal{pack.remaining === 1 ? "" : "s"} left of {pack.mealsTotal}

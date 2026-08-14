@@ -110,7 +110,7 @@ export default function TodayCard({
   if (!kitchenOpen) {
     return (
       <section className="og-rise rounded-[var(--og-r-xl)] border border-[var(--og-border)] bg-[var(--og-surface-alt)] p-7 text-center">
-        <p className="font-display text-[17px] font-semibold text-[var(--og-forest)]">
+        <p className="font-display text-[17px] font-semibold text-[var(--og-heading)]">
           Kitchen closed {when.toLowerCase()}
         </p>
         <p className="mt-1.5 text-[14px] leading-6 text-[var(--og-text-muted)]">
@@ -123,7 +123,7 @@ export default function TodayCard({
   if (!meal) {
     return (
       <section className="og-rise rounded-[var(--og-r-xl)] border border-[var(--og-border)] bg-[var(--og-surface)] p-7 text-center shadow-[var(--og-e1)]">
-        <p className="font-display text-[17px] font-semibold text-[var(--og-forest)]">
+        <p className="font-display text-[17px] font-semibold text-[var(--og-heading)]">
           No meal {when.toLowerCase()}
         </p>
         <p className="mt-1.5 text-[14px] leading-6 text-[var(--og-text-muted)]">

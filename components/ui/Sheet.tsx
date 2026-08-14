@@ -90,7 +90,7 @@ export default function Sheet({ open, onClose, title, subtitle, children, footer
 
         <header className="flex items-start gap-3 px-5 pb-3 pt-2">
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-[19px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
+            <h2 className="font-display text-[19px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-heading)]">
               {title}
             </h2>
             {subtitle && (

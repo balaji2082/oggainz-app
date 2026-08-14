@@ -60,14 +60,26 @@ function shapeFeedback(r: any): Feedback {
  * Postgres cache — it disappears whenever the instance recycles, which is often
  * — it just stops one person's burst of navigation costing four round trips.
  */
-const MEMO = new Map<string, { at: number; value: ScreenData }>();
+/**
+ * The PROMISE is memoised, not the resolved value.
+ *
+ * Storing the value meant two callers that started within the same tick both
+ * missed the cache and both ran the query — which is exactly what happens now
+ * that the layout renders the header while the page renders its content: React
+ * renders them concurrently, so `loadScreen` is called twice for one screen.
+ * Caching the in-flight promise makes the second caller wait on the first.
+ *
+ * A rejected promise is evicted rather than cached, so one failed load does not
+ * poison the next eight seconds for that customer.
+ */
+const MEMO = new Map<string, { at: number; value: Promise<ScreenData> }>();
 const MEMO_MS = 8000;
 
 function memoKey(customerId: string, window?: [string, string]) {
   return `${customerId}|${window?.join(":") ?? ""}`;
 }
 
-export async function loadScreen(
+export function loadScreen(
   customerId: string,
   feedbackWindow?: [string, string]
 ): Promise<ScreenData> {
@@ -75,7 +87,8 @@ export async function loadScreen(
   const hit = MEMO.get(key);
   if (hit && Date.now() - hit.at < MEMO_MS) return hit.value;
 
-  const value = await loadScreenUncached(customerId, feedbackWindow);
+  const value = loadScreenUncached(customerId, feedbackWindow);
+  value.catch(() => MEMO.delete(key));
 
   // Bounded so a busy instance cannot grow this without limit.
   if (MEMO.size > 200) MEMO.clear();

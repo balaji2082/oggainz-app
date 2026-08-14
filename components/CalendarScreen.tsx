@@ -63,6 +63,24 @@ export default function CalendarScreen({
    */
   const [confirmed, setConfirmed] = useState<Record<string, DayState>>({});
 
+  /**
+   * A resume the server has applied, painted across the whole stretch it cleared.
+   *
+   * `confirmed` above is per-day, which is right for a skip — one tap, one cell.
+   * A resume is not one cell. `core.resume_subscription` deletes or trims EVERY
+   * freeze window ending on or after the resume date, so "start meals from
+   * Tuesday" un-pauses Tuesday and everything after it in one go.
+   *
+   * This mirrors that rule rather than guessing: from the resume date to the end
+   * of the range, any day this pack's freezes had claimed goes back to being an
+   * ordinary delivery day. The bug it fixes: the toast said meals had restarted
+   * while the pause pips sat there until the customer reloaded the page.
+   *
+   * Keyed by pack, because a resume applies to ONE subscription — the same
+   * reason the calendar refuses to guess which pack a skip belongs to.
+   */
+  const [resumedFrom, setResumedFrom] = useState<Record<string, string>>({});
+
   const livePacks = useMemo(() => packs.filter((p) => LIVE.includes(p.status)), [packs]);
 
   /**
@@ -111,6 +129,10 @@ export default function CalendarScreen({
     const first = addDays(todayISO, -35);
     const last = addDays(todayISO, 60);
 
+    /** The date this pack's freezes were just cleared from, if any. */
+    const clearedFrom = pack ? resumedFrom[pack.id] : undefined;
+    const cleared = (d: string) => clearedFrom !== undefined && d >= clearedFrom;
+
     // Start from the plain fact of whether the kitchen runs that weekday, so a
     // day with no meal and no freeze reads as closed rather than blank.
     let probe = first;
@@ -127,7 +149,19 @@ export default function CalendarScreen({
       let guard = 0;
       while (d <= end && d <= last && guard++ < 400) {
         if (d >= first && isOperating(d, operatingWeekdays)) {
-          out[d] = { state: w.kind === "skip" ? "skipped" : "paused" };
+          // A day the server has just resumed is no longer frozen, whatever the
+          // payload still says — and it goes back to "meal coming" rather than
+          // blank, because that is what the customer was told would happen.
+          // (Blank would be the literal truth for a minute — the delivery row
+          // isn't generated until the evening before — but it reads as "nothing
+          // is coming", which is the opposite of what just happened.)
+          //
+          // Skipped days clear too, because the engine clears them too: a skip
+          // is stored as a one-day freeze, and resuming deletes every window
+          // ending on or after the resume date.
+          out[d] = cleared(d)
+            ? { state: "scheduled" }
+            : { state: w.kind === "skip" ? "skipped" : "paused" };
         }
         d = addDays(d, 1);
       }
@@ -137,6 +171,10 @@ export default function CalendarScreen({
       const late = deadlines[meal.date]?.late ?? meal.date < todayISO;
       let state: DayState = "scheduled";
       if (meal.status === "Delivered") state = "delivered";
+      // A resumed day's meal row still reads Paused/Skipped until the payload
+      // is re-read. Delivered is never overridden — the past is not resumable
+      // and the server would not have accepted it.
+      else if (cleared(meal.date)) state = "scheduled";
       else if (meal.status === "Skipped") state = "skipped";
       else if (meal.status === "Paused") state = "paused";
       else if (pendingByDate.has(meal.date)) state = "requested";
@@ -148,7 +186,10 @@ export default function CalendarScreen({
       out[date] = { ...(out[date] ?? {}), state };
     }
     return out;
-  }, [packMeals, pack, deadlines, todayISO, pendingByDate, operatingWeekdays, confirmed]);
+  }, [
+    packMeals, pack, deadlines, todayISO, pendingByDate, operatingWeekdays,
+    confirmed, resumedFrom,
+  ]);
 
   const selectedMeals = openDate ? packMeals.filter((m) => m.date === openDate) : [];
   const selectedDeadline = openDate ? deadlines[openDate] : undefined;
@@ -174,6 +215,23 @@ export default function CalendarScreen({
     return out;
   }, [start, end, operatingWeekdays]);
 
+  /**
+   * The server has restarted meals from this date on this pack.
+   *
+   * Also drops any per-day answer at or after that date: resuming clears future
+   * skips as well as the freeze, so a day this screen was still holding as
+   * "skipped" would otherwise be re-drawn skipped on top of the cleared stretch.
+   */
+  function handleResumed(from: string) {
+    if (!pack) return;
+    setResumedFrom((r) => ({ ...r, [pack.id]: from }));
+    setConfirmed((c) => {
+      const next: Record<string, DayState> = {};
+      for (const [d, state] of Object.entries(c)) if (d < from) next[d] = state;
+      return next;
+    });
+  }
+
   function confirmPause() {
     if (!start || !end || !pack) return;
     startTransition(async () => {
@@ -190,6 +248,16 @@ export default function CalendarScreen({
           const next = { ...c };
           for (const d of applied) next[d] = "paused";
           for (const d of queued) next[d] = "requested";
+          return next;
+        });
+        // A new freeze supersedes an earlier resume, so stop suppressing this
+        // pack's pause windows. Without this, someone who resumed and then
+        // paused again in the same sitting would keep seeing the resumed
+        // stretch as open once the payload caught up.
+        setResumedFrom((r) => {
+          if (!(pack.id in r)) return r;
+          const next = { ...r };
+          delete next[pack.id];
           return next;
         });
         setPausing(false);
@@ -260,6 +328,7 @@ export default function CalendarScreen({
         pendingRequest={selectedPending}
         confirmedState={openDate ? confirmed[openDate] : undefined}
         onConfirmed={(date, state) => setConfirmed((c) => ({ ...c, [date]: state }))}
+        onResumed={handleResumed}
       />
 
       <Sheet
@@ -292,7 +361,7 @@ export default function CalendarScreen({
 
         {start && (
           <div className="og-rise mt-5 rounded-[var(--og-r-md)] bg-[color-mix(in_srgb,var(--og-green)_9%,transparent)] p-4">
-            <p className="font-display text-[15px] font-semibold text-[var(--og-forest)]">
+            <p className="font-display text-[15px] font-semibold text-[var(--og-heading)]">
               {shortDate(start)} {end ? `→ ${shortDate(end)}` : ""}
             </p>
             {end && (

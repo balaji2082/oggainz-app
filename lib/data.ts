@@ -97,15 +97,47 @@ export { todayISO };
  * not a reason to take the whole page down. Skip/pause themselves are never
  * this forgiving — only the decorative countdown is.
  */
-export async function getDeadlines(
+/**
+ * Held for a few seconds in the running process.
+ *
+ * The endpoint's answer does not depend on WHO is asking — it is the cutoff
+ * setting and the clock — so the cache is keyed on the window alone and one
+ * customer's visit warms it for the next. That matters more than it sounds:
+ * the Command Center is a single free worker, and this was a second Command
+ * Center round trip on every calendar visit, on top of the one for requests.
+ *
+ * Twenty seconds, and no longer, because `server_now` rides along with it. The
+ * countdown corrects for it against the phone's own clock, so a stale reading
+ * makes the timer read slightly LOW — the safe direction, since it can only
+ * ever make someone hurry, never make them miss a deadline they were told they
+ * had. [LAW] docs/03 §5.3 is untouched: this is what the screen draws, and the
+ * server still decides every write on its own clock.
+ */
+const DEADLINE_MEMO = new Map<
+  string,
+  { at: number; value: Promise<{ serverNow: string | null; days: Record<string, Deadline> }> }
+>();
+const DEADLINE_MS = 20_000;
+
+export function getDeadlines(
   customerId: string,
   from: string,
   to: string
 ): Promise<{ serverNow: string | null; days: Record<string, Deadline> }> {
-  if (!liveAvailable()) return { serverNow: null, days: {} };
-  try {
-    return await fetchDeadlines(customerId, from, to);
-  } catch {
-    return { serverNow: null, days: {} };
-  }
+  if (!liveAvailable()) return Promise.resolve({ serverNow: null, days: {} });
+
+  const key = `${from}|${to}`;
+  const hit = DEADLINE_MEMO.get(key);
+  if (hit && Date.now() - hit.at < DEADLINE_MS) return hit.value;
+
+  const value = fetchDeadlines(customerId, from, to).catch(() => {
+    // Never cache a failure: a 404 while the endpoint is mid-rollout would
+    // otherwise silence the countdown for everyone for the next twenty seconds.
+    DEADLINE_MEMO.delete(key);
+    return { serverNow: null, days: {} as Record<string, Deadline> };
+  });
+
+  if (DEADLINE_MEMO.size > 50) DEADLINE_MEMO.clear();
+  DEADLINE_MEMO.set(key, { at: Date.now(), value });
+  return value;
 }

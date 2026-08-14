@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 
 import { Empty, SectionTitle } from "@/components/Bits";
 import PackCard from "@/components/PackCard";
-import Shell from "@/components/Shell";
 import StaleNotice from "@/components/StaleNotice";
 import TodayCard from "@/components/TodayCard";
 import {
@@ -29,7 +28,7 @@ export default async function CustomerHome({
   // These used to run one after another — the payload, then the deadlines, then
   // the unread count, then the avatar — stacking four waits end to end on a
   // screen where none of them needs to know about the others.
-  const [{ data, avatar, unread }, { serverNow, days: deadlineByDate }] = await Promise.all([
+  const [{ data }, { serverNow, days: deadlineByDate }] = await Promise.all([
     loadScreen(id),
     getDeadlines(id, today, today),
   ]);
@@ -42,10 +41,13 @@ export default async function CustomerHome({
   const firstName = data.customer.name.split(" ")[0];
 
   return (
-    <Shell customerId={id} active="home" supportUnread={unread > 0} avatar={avatar} name={data.customer.name}>
+    <>
       <StaleNotice asOf={data.asOf} />
 
-      <p className="font-display text-[23px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-forest)]">
+      {/* Home keeps its own greeting rather than the icon-chip PageHead: a name
+          is warmer than a label, and this is the one screen a customer opens
+          without having chosen to go anywhere. */}
+      <p className="font-display text-[23px] font-semibold leading-tight tracking-[-0.02em] text-[var(--og-heading)]">
         Hey {firstName}
       </p>
       <p className="mb-5 mt-1 text-[14px] text-[var(--og-text-muted)]">
@@ -126,6 +128,6 @@ export default async function CustomerHome({
           )}
         </div>
       </section>
-    </Shell>
+    </>
   );
 }

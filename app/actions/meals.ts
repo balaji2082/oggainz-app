@@ -56,8 +56,14 @@ async function resync(customerId: string) {
   // `after()` runs once the response is sent, so the button stops spinning as
   // soon as the Command Center has confirmed — which is the only moment that
   // was ever load-bearing (docs/03 §6: confirm nothing the server has not).
+  //
+  // Five minutes, not a day. It only has to be older than FRESH_SECONDS (60s)
+  // to force the re-read — and a day put it past STALE_MINUTES, which made the
+  // very next render show "Showing what we last knew at 4pm yesterday — we
+  // can't reach the kitchen right now". After a skip that had just SUCCEEDED.
+  // The copy was one second old and the Command Center was answering fine.
   await sql()`
-    UPDATE customer_profiles SET synced_at = now() - interval '1 day'
+    UPDATE customer_profiles SET synced_at = now() - interval '5 minutes'
      WHERE customer_id = ${customerId}
   `;
   revalidatePath("/me", "layout");

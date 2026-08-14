@@ -104,7 +104,7 @@ export default function AvatarUploader({ name, src }: { name: string; src: strin
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="og-press block text-[13.5px] font-semibold text-[var(--og-forest)]"
+          className="og-press block text-[13.5px] font-semibold text-[var(--og-heading)]"
         >
           {preview ? "Change photo" : "Add a photo"}
         </button>

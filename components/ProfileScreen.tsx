@@ -59,7 +59,7 @@ export default function ProfileScreen({ name, avatar, fields }: Props) {
           <button
             type="button"
             onClick={() => setRequesting(true)}
-            className="og-press w-full rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-4 py-3 text-[13px] font-semibold text-[var(--og-forest)]"
+            className="og-press w-full rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-4 py-3 text-[13px] font-semibold text-[var(--og-heading)]"
           >
             Request a change
           </button>

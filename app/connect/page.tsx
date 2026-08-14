@@ -180,7 +180,7 @@ function Choice({
 function Frame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <main className="mx-auto w-full max-w-[440px] px-5 py-12">
-      <h1 className="mb-2 font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-forest)]">
+      <h1 className="mb-2 font-display text-[24px] font-semibold leading-tight tracking-tight text-[var(--og-heading)]">
         {title}
       </h1>
       {children}
