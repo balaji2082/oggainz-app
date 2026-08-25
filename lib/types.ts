@@ -109,4 +109,14 @@ export interface PublicSettings {
   operatingWeekdays: number[];
   lunchWindow: string;
   dinnerWindow: string;
+  /**
+   * Plans that may be paused at all (docs/01 §7.1). EMPTY MEANS EVERY PLAN —
+   * an unset setting must not silently switch pausing off for everyone, which
+   * is exactly how `cutoff.freeze_eligible` reads it on the other side.
+   *
+   * The API has always sent this. The app ignored it, so it offered "Pause a
+   * stretch" on a Protein Shake that the server was always going to refuse,
+   * and only said so after the customer had picked their dates and confirmed.
+   */
+  freezeEligiblePlans: string[];
 }

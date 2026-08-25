@@ -64,6 +64,7 @@ export default async function Calendar({
         meals={data.meals}
         packs={data.packs}
         operatingWeekdays={data.settings.operatingWeekdays}
+        freezeEligiblePlans={data.settings.freezeEligiblePlans}
         deadlines={deadlines}
         serverNow={serverNow}
         feedback={feedback}

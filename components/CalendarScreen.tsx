@@ -9,6 +9,7 @@ import { addDays, shortDate } from "@/lib/format";
 import type { Meal, Pack } from "@/lib/types";
 import type { Deadline, SkipRequest } from "@/lib/writes";
 import Button from "./ui/Button";
+import Icon from "./ui/Icon";
 import Calendar, { type CalendarDay, type DayState } from "./ui/Calendar";
 import Sheet from "./ui/Sheet";
 import { useToast } from "./ui/Toast";
@@ -20,6 +21,8 @@ interface Props {
   meals: (Meal & { expected?: boolean })[];
   packs: Pack[];
   operatingWeekdays: number[];
+  /** Plans that may be paused at all. EMPTY MEANS EVERY PLAN (docs/01 §7.1). */
+  freezeEligiblePlans: string[];
   deadlines: Record<string, Deadline>;
   serverNow: string | null;
   feedback: Record<string, Feedback>;
@@ -39,6 +42,7 @@ export default function CalendarScreen({
   meals,
   packs,
   operatingWeekdays,
+  freezeEligiblePlans,
   deadlines,
   serverNow,
   feedback,
@@ -103,6 +107,20 @@ export default function CalendarScreen({
     () => packs.find((p) => p.id === packId) ?? livePacks[0] ?? packs[0],
     [packs, packId, livePacks]
   );
+
+  /**
+   * Whether THIS pack may be paused as a stretch (docs/01 §7.1).
+   *
+   * An empty list means every plan is eligible, matching `cutoff.freeze_eligible`
+   * exactly — an unset setting must not silently switch pausing off for
+   * everyone. Compared case-insensitively because the setting is typed by hand.
+   */
+  const canPause = useMemo(() => {
+    if (!pack) return false;
+    if (freezeEligiblePlans.length === 0) return true;
+    const allowed = freezeEligiblePlans.map((p) => p.trim().toLowerCase());
+    return allowed.includes(pack.planName.trim().toLowerCase());
+  }, [pack, freezeEligiblePlans]);
 
   /** Only this pack's meals. The API tags every row with its subscription. */
   const packMeals = useMemo(
@@ -297,24 +315,43 @@ export default function CalendarScreen({
 
       {pack && LIVE.includes(pack.status) && (
         <div className="mt-4">
-          <Button
-            variant="secondary"
-            full
-            onClick={() => setPausing(true)}
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <rect x="4" y="5" width="16" height="16" rx="3" />
-                <path d="M8 3v4M16 3v4M4 10h16" />
-              </svg>
-            }
-          >
-            Pause a stretch
-          </Button>
-          {livePacks.length > 1 && (
-            <p className="mt-2 text-center text-[12px] text-[var(--og-text-muted)]">
-              This pauses {pack.planName} only.
-            </p>
+          {canPause ? (
+            <>
+              <Button
+                variant="secondary"
+                full
+                onClick={() => setPausing(true)}
+                icon={<Icon name="calendar" size={16} weight={2} />}
+              >
+                Pause a stretch
+              </Button>
+              {livePacks.length > 1 && (
+                <p className="mt-2 text-center text-[12px] text-[var(--og-text-muted)]">
+                  This pauses {pack.planName} only.
+                </p>
+              )}
+            </>
+          ) : (
+            /*
+              Say it BEFORE, not after.
+              Balaji hit this on a Protein Shake: the button was offered, he
+              picked his dates, tapped Confirm, and only then got "this pack
+              cannot be paused". The server was right — `freeze_eligible_plans`
+              is set to Elite and Athlete only — but the app had known the rule
+              all along and offered the control anyway.
+              Shown as a note rather than a disabled button: a greyed-out
+              control with no reason is a puzzle, and single days can still be
+              skipped here, so there is no dead end to apologise for.
+            */
+            <div className="flex items-start gap-3 rounded-[var(--og-r-md)] bg-[var(--og-surface-alt)] px-4 py-3.5">
+              <span aria-hidden="true" className="text-[15px] leading-none">
+                🍱
+              </span>
+              <p className="text-[12.5px] leading-5 text-[var(--og-text-muted)]">
+                {pack.planName} can&rsquo;t be paused as a stretch — you can still
+                skip single days above.
+              </p>
+            </div>
           )}
         </div>
       )}

@@ -70,6 +70,10 @@ const FALLBACK_SETTINGS: PublicSettings = {
   operatingWeekdays: [0, 1, 2, 3, 4],
   lunchWindow: "11:00-13:45",
   dinnerWindow: "17:30-20:00",
+  // Empty = every plan may be paused, matching `cutoff.freeze_eligible`. The
+  // fallback must never be MORE restrictive than the server, or the app would
+  // hide a control the customer is entitled to whenever settings fail to load.
+  freezeEligiblePlans: [],
 };
 
 function config() {
@@ -210,6 +214,12 @@ function toSettings(s: any): PublicSettings {
       : FALLBACK_SETTINGS.operatingWeekdays,
     lunchWindow: lunch ?? FALLBACK_SETTINGS.lunchWindow,
     dinnerWindow: dinner ?? FALLBACK_SETTINGS.dinnerWindow,
+    // Stored as one comma-separated string ("Elite Meal Pack,Athlete Meal Pack")
+    // because that is what Balaji types into the settings box.
+    freezeEligiblePlans: String(s.freeze_eligible_plans ?? "")
+      .split(",")
+      .map((p: string) => p.trim())
+      .filter(Boolean),
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
