@@ -70,10 +70,6 @@ const FALLBACK_SETTINGS: PublicSettings = {
   operatingWeekdays: [0, 1, 2, 3, 4],
   lunchWindow: "11:00-13:45",
   dinnerWindow: "17:30-20:00",
-  // Empty = every plan may be paused, matching `cutoff.freeze_eligible`. The
-  // fallback must never be MORE restrictive than the server, or the app would
-  // hide a control the customer is entitled to whenever settings fail to load.
-  freezeEligiblePlans: [],
 };
 
 function config() {
@@ -146,6 +142,11 @@ function toPack(p: any): Pack {
       ...toComponents(p.composition?.addons, "addon"),
     ],
     notes: null,
+    // Default TRUE on purpose. If the Command Center has not been redeployed
+    // yet these keys are absent, and defaulting false would hide skip and pause
+    // from every customer the moment the app shipped ahead of the server.
+    canSkip: p.can_skip !== false,
+    canPause: p.can_pause !== false,
     pausedToday: Boolean(p.paused),
     pause: p.paused
       ? { start: p.start_date ?? "", end: p.paused_until ?? null, reason: null }
@@ -214,12 +215,6 @@ function toSettings(s: any): PublicSettings {
       : FALLBACK_SETTINGS.operatingWeekdays,
     lunchWindow: lunch ?? FALLBACK_SETTINGS.lunchWindow,
     dinnerWindow: dinner ?? FALLBACK_SETTINGS.dinnerWindow,
-    // Stored as one comma-separated string ("Elite Meal Pack,Athlete Meal Pack")
-    // because that is what Balaji types into the settings box.
-    freezeEligiblePlans: String(s.freeze_eligible_plans ?? "")
-      .split(",")
-      .map((p: string) => p.trim())
-      .filter(Boolean),
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

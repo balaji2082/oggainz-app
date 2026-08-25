@@ -236,6 +236,7 @@ export default function TodayCard({
                 serverNow={serverNow}
                 late={deadline?.late ?? false}
                 skipped={skipped}
+                canSkip={pack?.canSkip !== false}
                 subscriptionId={pack?.id}
                 onHero
                 onMessageUs={() => setMessaging(true)}

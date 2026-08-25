@@ -167,6 +167,10 @@ export function getPacks(customerId: string): Pack[] {
       skipped: num(r.skipped),
       components: componentsFor(id),
       notes: str(r.notes),
+      // Local snapshot mode has no flexibility table to consult; the laptop is
+      // for building screens, not for enforcing Balaji's per-customer rules.
+      canSkip: true,
+      canPause: true,
       pausedToday: Boolean(p),
       pause: p
         ? {
@@ -245,10 +249,6 @@ export function getSettings(): PublicSettings {
       .filter((n) => Number.isInteger(n)),
     lunchWindow: setting("delivery_promise_lunch", "11:00-13:45"),
     dinnerWindow: setting("delivery_promise_dinner", "17:30-20:00"),
-    freezeEligiblePlans: setting("freeze_eligible_plans", "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
   };
 }
 

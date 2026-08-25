@@ -60,6 +60,18 @@ export interface Pack {
   components: Component[];
   notes: string | null;
   /** True while a pause window covers today. */
+  /**
+   * Whether THIS pack may skip / pause, as decided by the SERVER.
+   *
+   * [LAW] docs/03 §1.4 — the app renders, it never decides. The app briefly
+   * re-derived this from a comma-separated list of plan names, which is the app
+   * deciding a business rule with its own copy of the data. Balaji then needed
+   * to switch it off for one CUSTOMER, which a list of plan names could never
+   * express, so the Command Center owns the whole question now (flexibility.py)
+   * and answers it per pack.
+   */
+  canSkip: boolean;
+  canPause: boolean;
   pausedToday: boolean;
   pause: { start: string; end: string | null; reason: string | null } | null;
   /**
@@ -109,14 +121,4 @@ export interface PublicSettings {
   operatingWeekdays: number[];
   lunchWindow: string;
   dinnerWindow: string;
-  /**
-   * Plans that may be paused at all (docs/01 §7.1). EMPTY MEANS EVERY PLAN —
-   * an unset setting must not silently switch pausing off for everyone, which
-   * is exactly how `cutoff.freeze_eligible` reads it on the other side.
-   *
-   * The API has always sent this. The app ignored it, so it offered "Pause a
-   * stretch" on a Protein Shake that the server was always going to refuse,
-   * and only said so after the customer had picked their dates and confirmed.
-   */
-  freezeEligiblePlans: string[];
 }

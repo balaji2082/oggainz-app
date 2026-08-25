@@ -224,6 +224,7 @@ export default function DaySheet({
                 serverNow={serverNow}
                 late={deadline?.late ?? date < todayISO}
                 skipped={confirmedState ? confirmedState === "skipped" : meal.status === "Skipped"}
+                canSkip={pack?.canSkip !== false}
                 // The meal's OWN pack, never the one the screen happens to be
                 // showing. These are the same thing today because the calendar
                 // filters by pack — but binding a write to the container rather
@@ -249,6 +250,7 @@ export default function DaySheet({
             serverNow={serverNow}
             late={deadline?.late ?? date < todayISO}
             skipped={confirmedState === "skipped"}
+            canSkip={pack.canSkip !== false}
             subscriptionId={pack.id}
             onMessageUs={() => setMessaging(true)}
             onConfirmed={(state) => onConfirmed?.(date, state)}

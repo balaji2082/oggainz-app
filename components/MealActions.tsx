@@ -38,6 +38,11 @@ interface Props {
   serverNow?: string;
   late: boolean;
   skipped: boolean;
+  /**
+   * Whether this pack may skip at all, decided by the server (flexibility.py).
+   * Defaults true so a screen that forgets to pass it behaves as it always did.
+   */
+  canSkip?: boolean;
   subscriptionId?: string;
   /** Rendered on the dark hero card rather than on cream. */
   onHero?: boolean;
@@ -58,6 +63,7 @@ export default function MealActions({
   serverNow,
   late,
   skipped,
+  canSkip = true,
   subscriptionId,
   onHero,
   onMessageUs,
@@ -189,6 +195,27 @@ export default function MealActions({
             Message us
           </Button>
         )}
+      </div>
+    );
+  }
+
+  // --- skipping switched off for this pack ---------------------------------
+  //
+  // Before the button, not after it. The whole reason this control exists is
+  // that Balaji hit the opposite: offered a pause, picked dates, confirmed, and
+  // only then was told the pack could not do it.
+  if (!canSkip) {
+    return (
+      <div
+        className={[
+          "flex items-start gap-3 rounded-[var(--og-r-md)] px-3.5 py-3",
+          onHero ? "bg-[rgba(255,255,255,0.08)] text-[var(--og-on-hero)]" : "bg-[var(--og-surface-alt)]",
+        ].join(" ")}
+      >
+        <span aria-hidden="true" className="text-[15px] leading-none">🍱</span>
+        <p className={`text-[12.5px] leading-5 ${onHero ? "text-[var(--og-on-hero-dim)]" : "text-[var(--og-text-muted)]"}`}>
+          This pack is set to deliver every day. Message us if you need a day off.
+        </p>
       </div>
     );
   }

@@ -21,8 +21,6 @@ interface Props {
   meals: (Meal & { expected?: boolean })[];
   packs: Pack[];
   operatingWeekdays: number[];
-  /** Plans that may be paused at all. EMPTY MEANS EVERY PLAN (docs/01 §7.1). */
-  freezeEligiblePlans: string[];
   deadlines: Record<string, Deadline>;
   serverNow: string | null;
   feedback: Record<string, Feedback>;
@@ -42,7 +40,6 @@ export default function CalendarScreen({
   meals,
   packs,
   operatingWeekdays,
-  freezeEligiblePlans,
   deadlines,
   serverNow,
   feedback,
@@ -109,18 +106,15 @@ export default function CalendarScreen({
   );
 
   /**
-   * Whether THIS pack may be paused as a stretch (docs/01 §7.1).
+   * Whether THIS pack may be paused as a stretch.
    *
-   * An empty list means every plan is eligible, matching `cutoff.freeze_eligible`
-   * exactly — an unset setting must not silently switch pausing off for
-   * everyone. Compared case-insensitively because the setting is typed by hand.
+   * Read straight off the pack, because the SERVER decided it (flexibility.py).
+   * This was briefly computed here from a list of plan names the API handed
+   * over — the app deciding a business rule from a copy of the data, which is
+   * exactly what docs/03 §1.4 forbids, and which could not express the thing
+   * Balaji actually needed: switching it off for one customer.
    */
-  const canPause = useMemo(() => {
-    if (!pack) return false;
-    if (freezeEligiblePlans.length === 0) return true;
-    const allowed = freezeEligiblePlans.map((p) => p.trim().toLowerCase());
-    return allowed.includes(pack.planName.trim().toLowerCase());
-  }, [pack, freezeEligiblePlans]);
+  const canPause = pack?.canPause !== false;
 
   /** Only this pack's meals. The API tags every row with its subscription. */
   const packMeals = useMemo(
