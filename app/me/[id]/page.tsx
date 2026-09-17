@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { Empty, SectionTitle } from "@/components/Bits";
+import MenuPeek from "@/components/MenuPeek";
 import StaleNotice from "@/components/StaleNotice";
 import TodayCard from "@/components/TodayCard";
 import {
@@ -11,7 +12,15 @@ import {
   todayISO,
 } from "@/lib/data";
 import { relativeDay, shortDate } from "@/lib/format";
+import { fetchUpcomingMenu } from "@/lib/menu";
 import { loadScreen } from "@/lib/screen";
+
+/** Tomorrow, as an ISO date. The menu peek looks one day ahead. */
+function tomorrowISO(todayIso: string): string {
+  const d = new Date(`${todayIso}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 export default async function CustomerHome({
   params,
@@ -27,10 +36,16 @@ export default async function CustomerHome({
   // These used to run one after another — the payload, then the deadlines, then
   // the unread count, then the avatar — stacking four waits end to end on a
   // screen where none of them needs to know about the others.
-  const [{ data }, { serverNow, days: deadlineByDate }] = await Promise.all([
-    loadScreen(id),
-    getDeadlines(id, today, today),
-  ]);
+  // The menu joins the same parallel batch rather than being awaited after it.
+  // It is the one call here that is allowed to fail quietly — fetchUpcomingMenu
+  // returns [] instead of throwing, so a sleeping Command Center costs the menu
+  // card and nothing else on this screen.
+  const [{ data }, { serverNow, days: deadlineByDate }, menuWeeks] =
+    await Promise.all([
+      loadScreen(id),
+      getDeadlines(id, today, today),
+      fetchUpcomingMenu(today),
+    ]);
   if (!data.customer) notFound();
 
   const packs = data.packs;
@@ -38,6 +53,17 @@ export default async function CustomerHome({
   const upcoming = mealsAfter(data, today, 5);
   const packById = new Map(packs.map((p) => [p.id, p]));
   const firstName = data.customer.name.split(" ")[0];
+
+  const tomorrow = tomorrowISO(today);
+  const menuDays = menuWeeks.flatMap((w) => w.days);
+  // Tomorrow if the kitchen runs tomorrow; otherwise the next day it does, so a
+  // Friday evening shows Monday rather than nothing all weekend.
+  const nextMenuDay =
+    menuDays.find((d) => d.date === tomorrow) ??
+    menuDays.find((d) => d.date > today) ??
+    null;
+  const menuHeading =
+    nextMenuDay?.date === tomorrow ? "Tomorrow" : "Next";
 
   return (
     <>
@@ -79,6 +105,8 @@ export default async function CustomerHome({
           />
         )}
       </div>
+
+      <MenuPeek day={nextMenuDay} customerId={id} heading={menuHeading} />
 
       {upcoming.length > 0 && (
         <section className="mt-8 pb-4">

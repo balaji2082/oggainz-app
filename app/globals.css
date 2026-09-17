@@ -387,3 +387,54 @@ h1, h2, h3, .font-display {
 /* No flash of the wrong theme: the inline script in layout.tsx sets data-theme
    before first paint, and this keeps the ground colour honest meanwhile. */
 :root[data-theme="dark"] body { background: #070f0c; }
+
+/* ---------------------------------------------------------------------------
+   Printing the weekly menu ("Save as PDF").
+   ---------------------------------------------------------------------------
+   The customer's browser makes the PDF, so there is no PDF library anywhere in
+   this app. What that costs is this stylesheet: on paper the app's chrome is
+   noise, the dark theme wastes ink, and a day card split across a page break is
+   unreadable. All three are fixed here rather than in a second set of
+   components, so the printed menu can never drift from the one on screen.
+--------------------------------------------------------------------------- */
+@media print {
+  /* Paper is white whatever the phone's theme is. */
+  :root, :root[data-theme="dark"] {
+    --og-bg: #ffffff;
+    --og-surface: #ffffff;
+    --og-surface-alt: #ffffff;
+    --og-heading: #15241d;
+    --og-text-muted: #5c6f66;
+    --og-border: #d8e0da;
+    --og-chip: #f2f6f2;
+  }
+  :root[data-theme="dark"] body { background: #ffffff; }
+  body { background: #ffffff; }
+
+  /* The app's furniture: header, tab dock, and anything marked no-print. */
+  header,
+  nav[aria-label="Main"],
+  .og-menu-noprint,
+  .og-menu-head {
+    display: none !important;
+  }
+
+  .og-menu-print-only { display: block !important; }
+
+  main { padding: 0 !important; }
+
+  /* A day must not be cut in half by a page break. */
+  .og-menu-day {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #d8e0da !important;
+  }
+
+  /* Today's ring is a screen affordance and means nothing on paper. */
+  .og-menu-day.ring-2 { box-shadow: none !important; }
+
+  .og-menu-fine { color: #5c6f66 !important; }
+
+  @page { size: A4; margin: 14mm; }
+}
