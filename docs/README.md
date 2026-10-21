@@ -50,6 +50,13 @@ something the Command Center does not do and this app should.
 
 ## Status
 
+> **This table is from 4 August 2026 and understates what is built** — sign-in,
+> the customer screens, the write paths (skip / pause / resume), the admin
+> request queue and the live deployment all landed after it was written. For the
+> current state, read [handover/02-WHAT-IS-DONE.md](handover/02-WHAT-IS-DONE.md),
+> which was read off the code rather than off this table.
+
+
 Against the build order in [03 §8](03-data-model.md#8-build-order):
 
 | Step | | |
@@ -85,4 +92,5 @@ data source.
 **keep** them as a Python service behind an API. Recommendation is to port, gated
 behind a nightly diff harness that proves both engines agree. Not yet decided.
 
-*Last updated 4 Aug 2026.*
+*Last updated 4 Aug 2026. Superseded in part by
+[handover/](handover/README.md), 21 Oct 2026.*
